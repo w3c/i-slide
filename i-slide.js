@@ -6,6 +6,7 @@
  * - Improve content-type sniffing
  * - Add non-reentrance logic for calls to fetch
  * - Figure out how to test the web component
+ * - Handle error cases (and report to console)
  */
 
 /**
@@ -300,3 +301,5 @@ class ISlide extends HTMLElement {
 
 // Register the custom element
 customElements.define('i-slide', ISlide);
+
+export default ISlide;
