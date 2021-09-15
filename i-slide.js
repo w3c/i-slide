@@ -64,6 +64,8 @@ class ISlide extends HTMLElement {
   type;
 
 
+  loaded;
+
   /**
    * Observe changes on "src" and "width" attributes.
    */
@@ -80,6 +82,7 @@ class ISlide extends HTMLElement {
    */
   constructor() {
     super();
+    this.loaded = false;
     this.attachShadow({ mode: 'open' });
   }
 
@@ -253,7 +256,10 @@ class ISlide extends HTMLElement {
       this.src = src;
       this.type = type;
       this.width = width;
-      this.fetch().then(() => this.render());
+      this.fetch().then(() => this.render()).then(() => {
+        this.loaded = true;
+        this.dispatchEvent(new Event("load"));
+      });
     }
     else if (this.width !== width) {
       this.width = width;
