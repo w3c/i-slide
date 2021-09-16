@@ -70,6 +70,25 @@ describe("Test loading a single slide", function() {
 
   });
 
+  it("falls back to a link by default", async () => {
+    const page = await browser.newPage();
+    await page.goto(baseUrl + 'error-islide.html');
+    const res = await evalComponent(page, [["a", "href"]]);
+    assert.equal(res.error, undefined);
+    assert.equal(res.a, "about:blank#1");
+    if (!debug) await page.close();
+
+  });
+
+  it("falls back to the inner content when defined", async () => {
+    const page = await browser.newPage();
+    await page.goto(baseUrl + 'error-2-islide.html');
+    const res = await evalComponent(page, [["span"]]);
+    assert.equal(res.error, undefined);
+    assert(res.span);
+    if (!debug) await page.close();
+
+  });
 
   // TO TEST
   // multiple slides, single fetch

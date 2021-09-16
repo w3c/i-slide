@@ -10,9 +10,16 @@
  */
 
 /**
- * Local cache for holding slide decks
+ * Local cache for holding fetched and parsed slide decks
  */
 const cache = {};
+
+
+
+/**
+ * List of pending fetches for the cache to avoid re-entrance issues
+ */
+const pendingFetch = {};
 
 
 /**
@@ -97,54 +104,75 @@ class ISlide extends HTMLElement {
       return;
     }
 
-    // TODO: Set promise in cache and check it to avoid re-entrance issues
     const docUrl = this.src.split('#')[0];
+
+    // Retrieve slide deck from cache when possible
+    if (pendingFetch[docUrl]) {
+      await pendingFetch[docUrl];
+    }
     if (cache[docUrl]) {
       return;
     }
+
+    // Mark the slide deck as pending to avoid re-entrance issues when function
+    // gets called from another instance, and fetch the slide deck
+    let pendingResolve;
+    pendingFetch[docUrl] = new Promise(resolve => {
+      pendingResolve = resolve;
+    });
 
     if (this.type === 'application/pdf') {
       this.loadPDFScripts();
     }
 
-    const resp = await fetch(docUrl);
-    const contentType = resp.headers.get('Content-Type');
-    // TODO: be subtle with content-types
-    if (contentType === 'application/pdf') {
-      this.loadPDFScripts();
+    try {
+      const resp = await fetch(docUrl);
+      const contentType = resp.headers.get('Content-Type');
+      // TODO: be subtle with content-types
+      if (contentType === 'application/pdf') {
+        this.loadPDFScripts();
+      }
+
+      const isPDF = (this.type === 'application/pdf') || (contentType === 'application/pdf');
+
+      if (isPDF) {
+        await PDFScriptsLoaded;
+        const loadingTask = window[PDFScripts.pdfjsLib.obj].getDocument(docUrl);
+        const pdf = await loadingTask.promise;
+        cache[docUrl] = { type: 'pdf', pdf };
+      }
+      else {
+        const html = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Resolve all relative links in the document
+        // TODO: handle srcset for images, consider object[data]
+        // TODO: handle relative URLs in inline styles
+        const selector = ['src', 'href', 'poster', 'longdesc']
+          .map(attr => `*[${attr}]:not([${attr}*=":"])`)
+          .join(',');
+        doc.querySelectorAll(selector).forEach(el => {
+          const attr = el.hasAttribute('src') ? 'src' : 'href';
+          const relativeUrl = el.getAttribute(attr);
+          try {
+            const absoluteUrl = new URL(relativeUrl, docUrl).href;
+            el.setAttribute(attr, absoluteUrl);
+          }
+          catch {}
+        });
+
+        // TODO: Find out why fonts aren't downloaded!
+        cache[docUrl] = { type: 'shower-2014', doc };
+      }
     }
-
-    const isPDF = (this.type === 'application/pdf') || (contentType === 'application/pdf');
-
-    if (isPDF) {
-      await PDFScriptsLoaded;
-      const loadingTask = window[PDFScripts.pdfjsLib.obj].getDocument(docUrl);
-      const pdf = await loadingTask.promise;
-      cache[docUrl] = { type: 'pdf', pdf };
+    catch (err) {
+      console.error('Could not fetch slide deck', docUrl, err);
+      cache[docUrl] = { type: 'error' };
     }
-    else {
-      const html = await resp.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-
-      // Resolve all relative links in the document
-      // TODO: handle srcset for images, consider object[data]
-      // TODO: handle relative URLs in inline styles
-      const selector = ['src', 'href', 'poster', 'longdesc']
-        .map(attr => `*[${attr}]:not([${attr}*=":"])`)
-        .join(',');
-      doc.querySelectorAll(selector).forEach(el => {
-        const attr = el.hasAttribute('src') ? 'src' : 'href';
-        const relativeUrl = el.getAttribute(attr);
-        try {
-          const absoluteUrl = new URL(relativeUrl, docUrl).href;
-          el.setAttribute(attr, absoluteUrl);
-        }
-        catch {}
-      });
-
-      // TODO: Find out why fonts aren't downloaded!
-      cache[docUrl] = { type: 'shower-2014', doc };
+    finally {
+      pendingResolve();
+      delete pendingFetch[docUrl];
     }
   }
 
@@ -198,6 +226,16 @@ class ISlide extends HTMLElement {
       this.shadowRoot.append(styleEl, divEl);
 
       return pdfPageView.draw();
+    }
+    else if (cacheEntry.type === 'error') {
+      const doc = document.createElement('div');
+      doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
+        :host { display: block; }
+        :host([hidden]) { display: none; }
+      `;
+      this.shadowRoot.append(styleEl, doc);
     }
     else {
       const { type, doc } = cache[docUrl];
