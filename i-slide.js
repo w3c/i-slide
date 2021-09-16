@@ -114,7 +114,7 @@ class ISlide extends HTMLElement {
       return;
     }
 
-    // Mark the slide deck as pending to avoid re-entrance issues when function
+    // Mark the slide deck as pending to avoid re-entrancy issues when function
     // gets called from another instance, and fetch the slide deck
     let pendingResolve;
     pendingFetch[docUrl] = new Promise(resolve => {
