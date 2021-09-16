@@ -189,6 +189,8 @@ class ISlide extends HTMLElement {
     const [docUrl, slideId] = this.src.split('#');
     const cacheEntry = cache[docUrl];
 
+    const width = parseInt(this.getAttribute('width') ?? 300, 10);
+
     if (cacheEntry.type === 'pdf') {
       const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
       const eventBus = new pdfjsViewer.EventBus();
@@ -202,14 +204,13 @@ class ISlide extends HTMLElement {
       styleEl.href = 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.css';
 
       const divEl = document.createElement('div');
-      /*divEl.style.width = `300px`;
-      divEl.style.height = `200px`;*/
+      // Needed to properly position the annotation layer (e.g. links)
+      divEl.style.position = "relative";
 
-      // Make slides fit the available space (Note the need to convert from
+      // Make slides fit the defined width of the component
+      // (Note the need to convert from
       // CSS points to CSS pixels for page dimensions)
-      const scale = Math.min(
-        divEl.clientHeight / page.view[3],
-        divEl.clientWidth / page.view[2]) * 72 / 96;
+      const scale = (width / page.view[2]) * 72/96;
       const viewport = page.getViewport({ scale });
       var pdfPageView = new pdfjsViewer.PDFPageView({
         container: divEl,
@@ -240,7 +241,6 @@ class ISlide extends HTMLElement {
     else {
       const { type, doc } = cache[docUrl];
 
-      const width = parseInt(this.getAttribute('width') ?? 300, 10);
 
       const headEl = doc.querySelector('head').cloneNode(true);
       const bodyEl = doc.querySelector('body').cloneNode();

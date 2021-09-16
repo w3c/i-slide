@@ -62,9 +62,9 @@ describe("Test loading a single slide", function() {
   it("loads a single PDF slide", async () => {
     const page = await browser.newPage();
     await page.goto(baseUrl + 'pdf-islide.html');
-    const res = await evalComponent(page, [["canvas"], ["a", "href"]]);
+    const res = await evalComponent(page, [["canvas", "width"], ["a", "href"]]);
     assert.equal(res.error, undefined);
-    assert(res.canvas);
+    assert.equal(res.canvas, 300);
     assert.equal(res.a, "https://github.com/tidoust/i-slide/");
     if (!debug) await page.close();
 
