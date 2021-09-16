@@ -128,12 +128,15 @@ class ISlide extends HTMLElement {
     try {
       const resp = await fetch(docUrl);
       const contentType = resp.headers.get('Content-Type');
-      // TODO: be subtle with content-types
-      if (contentType === 'application/pdf') {
+      // TODO: is something more robust à la https://github.com/jsdom/whatwg-mimetype needed here?
+      const effectiveMimeType = contentType.split(';')[0];
+      if (effectiveMimeType === 'application/pdf' ||
+          // taking into account poorly configured servers
+          (effectiveMimeType === 'application/octet' && docUrl.match(/\.pdf$/))) {
         this.loadPDFScripts();
       }
 
-      const isPDF = (this.type === 'application/pdf') || (contentType === 'application/pdf');
+      const isPDF = (this.type === 'application/pdf') || (effectiveMimeType === 'application/pdf');
 
       if (isPDF) {
         await PDFScriptsLoaded;
