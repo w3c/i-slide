@@ -276,7 +276,6 @@ class ISlide extends HTMLElement {
       this.shadowRoot.append(htmlEl);
       styleLoaded.then(() => {
         // We need the slide to be rendered to measure its pixel dimensions
-        // through window.getComputedStyle
 
         const scale = width / slideEl.clientWidth;
         const height = slideEl.clientHeight * scale;
