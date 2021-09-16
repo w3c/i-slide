@@ -1,12 +1,5 @@
 /**
  * i-slide: Web component to display inline slides
- * 
- * Main TODO:
- * - Handle shower / reveal / b6+
- * - Improve content-type sniffing
- * - Add non-reentrance logic for calls to fetch
- * - Figure out how to test the web component
- * - Handle error cases (and report to console)
  */
 
 /**
@@ -127,6 +120,13 @@ class ISlide extends HTMLElement {
 
     try {
       const resp = await fetch(docUrl);
+      if (resp.status !== 200) {
+        console.error(
+          'Could not fetch slide deck', docUrl,
+          'HTTP status code received is', resp.status);
+        cache[docUrl] = { type: 'error', status: resp.status };
+        return;
+      }
       const contentType = resp.headers.get('Content-Type');
       // TODO: is something more robust à la https://github.com/jsdom/whatwg-mimetype needed here?
       const effectiveMimeType = contentType.split(';')[0];
