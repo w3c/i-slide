@@ -124,7 +124,7 @@ class ISlide extends HTMLElement {
         console.error(
           'Could not fetch slide deck', docUrl,
           'HTTP status code received is', resp.status);
-        cache[docUrl] = { type: 'error', status: resp.status };
+        cache[docUrl] = { type: 'error' };
         return;
       }
       const contentType = resp.headers.get('Content-Type');
