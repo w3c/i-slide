@@ -3,11 +3,16 @@ const puppeteer = require('puppeteer');
 
 const {HttpServer} = require("http-server");
 
-const server = new HttpServer(
-  {cors: true,
-   port: 0,
-   logFn: (req, res, err) => { if (err) console.error(err, req.url, req.status); } 
-  });
+const server = new HttpServer({
+  cors: true,
+  port: 0,
+  logFn: (req, res, err) => {
+    // Ignore "not found" errors that some tests generate on purpose
+    if (err && err.status !== 404) {
+      console.error(err, req.url, req.status);
+    }
+  }
+});
 
 let browser;
 const port = process.env.PORT ?? 8081;
@@ -46,8 +51,8 @@ async function evalComponent(page, shadowTreePaths) {
 }
 
 describe("Test loading a single slide", function() {
-  this.slow(5000);
-  this.timeout(5000);
+  this.slow(20000);
+  this.timeout(20000);
   before(async () => {
     server.listen(port);
     browser = await puppeteer.launch({ headless: !debug });
@@ -109,9 +114,18 @@ describe("Test loading a single slide", function() {
 
   });
 
+  it("falls back when slide set is a 404", async () => {
+    const page = await browser.newPage();
+    await page.goto(baseUrl + '404-islide.html');
+    const res = await evalComponent(page, [["a", "href"]]);
+    assert.equal(res.error, undefined);
+    assert.equal(res.a, "http://localhost:8081/test/resources/404#1");
+    if (!debug) await page.close();
+
+  });
+
   // TO TEST
   // multiple slides, single fetch
-  // error loading slides
 
   after(async () => {
     if (!debug) {
