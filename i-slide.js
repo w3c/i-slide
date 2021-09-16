@@ -248,41 +248,51 @@ class ISlide extends HTMLElement {
       const headEl = doc.querySelector('head').cloneNode(true);
       const bodyEl = doc.querySelector('body').cloneNode();
 
-      const slideEl = doc.querySelectorAll('.slide')[parseInt(slideId, 10) - 1].cloneNode(true);
-      const scale = width / 1024;
-      const height = 640 * scale;
+      const slideEl = doc.querySelectorAll('.slide')[parseInt(slideId, 10) - 1].cloneNode(true) ;
       slideEl.style.marginLeft = '0';
-      slideEl.classList.add('active');
-      bodyEl.classList.add('full');
       bodyEl.style.top = 'inherit';
       bodyEl.style.left = 'inherit';
       bodyEl.style.margin = 'inherit';
-      bodyEl.style.transformOrigin = '0 0';
-      // TODO: Anchor in detection of CSS Variable in stylesheet
-      if (bodyEl.classList.contains("shower")) {
-        slideEl.style.setProperty('--slide-scale', 1);
-        bodyEl.style.setProperty('--shower-full-scale', scale);
-      } else {
-        // for versions of shower that didn't use CSS variables
-        bodyEl.style.transform = `scale(${scale})`;
-      }
+
+      //  Works for Shower and b6
+      slideEl.classList.add('active');
+      bodyEl.classList.add('full');
+      bodyEl.classList.remove('list');
+
+      // Specific to Shower with CSS Variables
+      slideEl.style.setProperty('--slide-scale', 1);
+
       bodyEl.appendChild(slideEl);
 
-      // Set the custom element's height
-      // (cannot let CSS compute the height because slides are absolutely
-      // positioned most of the time...)
-      const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        :host { display: block; height: ${height}px; }
-        :host([hidden]) { display: none; }
-      `;
-      headEl.appendChild(styleEl);;
-      
       // Attach HTML document to shadow root
       const htmlEl = document.createElement('html');
       htmlEl.appendChild(headEl);
       htmlEl.appendChild(bodyEl);
+      const styleLoaded = Promise.all([...headEl.querySelectorAll("link[rel~=stylesheet]")].map(l => new Promise((res) => {
+        l.addEventListener("load", res);
+        l.addEventListener("error", res);
+      })));
+
       this.shadowRoot.append(htmlEl);
+      styleLoaded.then(() => {
+        // We need the slide to be rendered to measure its pixel dimensions
+        // through window.getComputedStyle
+
+        const scale = width / slideEl.clientWidth;
+        const height = slideEl.clientHeight * scale;
+        bodyEl.style.transformOrigin = '0 0';
+        bodyEl.style.transform = `scale(${scale})`;
+
+        // Set the custom element's height
+        // (cannot let CSS compute the height because slides are absolutely
+        // positioned most of the time...)
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+        :host { display: block; height: ${height}px; }
+        :host([hidden]) { display: none; }
+      `;
+        headEl.appendChild(styleEl);
+      });
     }
   }
 
