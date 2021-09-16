@@ -264,17 +264,21 @@ class ISlide extends HTMLElement {
 
       bodyEl.appendChild(slideEl);
 
+      const styleLoadedPromises = [];
+      [...headEl.querySelectorAll("link[rel~=stylesheet]")].map(l => {
+        let resolve;
+        const p = new Promise((res) => resolve = res);
+        l.addEventListener("load", resolve);
+        l.addEventListener("error", resolve);
+        styleLoadedPromises.push(p);
+      });
       // Attach HTML document to shadow root
       const htmlEl = document.createElement('html');
       htmlEl.appendChild(headEl);
       htmlEl.appendChild(bodyEl);
-      const styleLoaded = Promise.all([...headEl.querySelectorAll("link[rel~=stylesheet]")].map(l => new Promise((res) => {
-        l.addEventListener("load", res);
-        l.addEventListener("error", res);
-      })));
 
       this.shadowRoot.append(htmlEl);
-      styleLoaded.then(() => {
+      return Promise.all(styleLoadedPromises).then(() => {
         // We need the slide to be rendered to measure its pixel dimensions
 
         const scale = width / slideEl.clientWidth;
