@@ -278,24 +278,24 @@ class ISlide extends HTMLElement {
       htmlEl.appendChild(bodyEl);
 
       this.shadowRoot.append(htmlEl);
-      return Promise.all(styleLoadedPromises).then(() => {
-        // We need the slide to be rendered to measure its pixel dimensions
+      // We need the slide to be rendered with its styles
+      // to measure its pixel dimensions
+      await Promise.all(styleLoadedPromises);
 
-        const scale = width / slideEl.clientWidth;
-        const height = slideEl.clientHeight * scale;
-        bodyEl.style.transformOrigin = '0 0';
-        bodyEl.style.transform = `scale(${scale})`;
+      const scale = width / slideEl.clientWidth;
+      const height = slideEl.clientHeight * scale;
+      bodyEl.style.transformOrigin = '0 0';
+      bodyEl.style.transform = `scale(${scale})`;
 
-        // Set the custom element's height
-        // (cannot let CSS compute the height because slides are absolutely
-        // positioned most of the time...)
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
+      // Set the custom element's height
+      // (cannot let CSS compute the height because slides are absolutely
+      // positioned most of the time...)
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
         :host { display: block; height: ${height}px; }
         :host([hidden]) { display: none; }
       `;
-        headEl.appendChild(styleEl);
-      });
+      headEl.appendChild(styleEl);
     }
   }
 
