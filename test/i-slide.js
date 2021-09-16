@@ -18,7 +18,12 @@ const debug = !!process.env.DEBUG;
 async function evalComponent(page, shadowTreePaths) {
   return page.evaluate(async (shadowTreePaths) => {
     function extractInfo(el) {
-      let res = {};
+      const res = {};
+      if (el.shadowRoot.querySelector("body")) {
+        const {height, width} = el.shadowRoot.querySelector("body").getBoundingClientRect();
+        res.height = Math.floor(height);
+        res.width = Math.floor(width);
+      }
       for ([child, attr] of shadowTreePaths) {
         res[child] = attr ? el.shadowRoot.querySelector(child)?.getAttribute(attr) : !!el.shadowRoot.querySelector(child);
       }
@@ -54,10 +59,24 @@ describe("Test loading a single slide", function() {
     await page.goto(baseUrl + 'shower-islide.html');
     const res = await evalComponent(page, [["img", "src"]]);
     assert.equal(res.error, undefined);
+    assert.equal(res.width, 300);
     assert.deepEqual(res.img, rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg");
     if (!debug) await page.close();
 
   });
+
+  it("loads a single b6+ slide", async () => {
+    const page = await browser.newPage();
+    page.on("console", msg => console.log(msg));
+    await page.goto(baseUrl + 'b6+-islide.html');
+    const res = await evalComponent(page, [["a", "href"]]);
+    assert.equal(res.error, undefined);
+    assert.equal(res.width, 300);
+    assert.deepEqual(res.a, "https://www.w3.org/Talks/Tools/b6plus/simple.css");
+    if (!debug) await page.close();
+
+  });
+
 
   it("loads a single PDF slide", async () => {
     const page = await browser.newPage();
