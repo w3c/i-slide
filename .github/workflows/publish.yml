@@ -1,0 +1,33 @@
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+name: Publish JS library to gh-pages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Checkout repo
+      uses: actions/checkout@v2
+
+    - name: Run tests
+      run: |
+        npm install -g npm@7 --registry=https://registry.npmjs.org
+        npm ci
+        npm test
+
+    - name: Publish one lib per tag to gh-pages branch
+      run: |
+        git config user.name "i-slide-bot"
+        git config user.email "<>"
+        git remote set-url --push origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY
+        node tools/publish-lib.js
+        git push origin gh-pages:gh-pages
