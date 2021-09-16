@@ -245,18 +245,24 @@ class ISlide extends HTMLElement {
       const headEl = doc.querySelector('head').cloneNode(true);
       const bodyEl = doc.querySelector('body').cloneNode();
 
-      // TODO: Specific to shower version 2014!!!
       const slideEl = doc.querySelectorAll('.slide')[parseInt(slideId, 10) - 1].cloneNode(true);
       const scale = width / 1024;
       const height = 640 * scale;
       slideEl.style.marginLeft = '0';
-      bodyEl.className = 'full';
+      slideEl.classList.add('active');
+      bodyEl.classList.add('full');
       bodyEl.style.top = 'inherit';
       bodyEl.style.left = 'inherit';
       bodyEl.style.margin = 'inherit';
       bodyEl.style.transformOrigin = '0 0';
-      bodyEl.style.transform = `scale(${scale})`;
-
+      // TODO: Anchor in detection of CSS Variable in stylesheet
+      if (bodyEl.classList.contains("shower")) {
+        slideEl.style.setProperty('--slide-scale', 1);
+        bodyEl.style.setProperty('--shower-full-scale', scale);
+      } else {
+        // for versions of shower that didn't use CSS variables
+        bodyEl.style.transform = `scale(${scale})`;
+      }
       bodyEl.appendChild(slideEl);
 
       // Set the custom element's height
