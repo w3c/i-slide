@@ -20,8 +20,8 @@ const rootUrl = `http://localhost:${port}`;
 const baseUrl = `${rootUrl}/test/resources/`;
 const debug = !!process.env.DEBUG;
 
-async function evalComponent(page, shadowTreePaths) {
-  return page.evaluate(async (shadowTreePaths) => {
+async function evalComponent(page, shadowTreePaths, slideNumber = 0) {
+  return page.evaluate(async (shadowTreePaths, slideNumber) => {
     function extractInfo(el) {
       const res = {};
       if (el.shadowRoot.querySelector("body")) {
@@ -34,7 +34,7 @@ async function evalComponent(page, shadowTreePaths) {
       }
       return res;
     }
-    const el = document.querySelector("i-slide")
+    const el = document.querySelectorAll("i-slide")[slideNumber];
     if (!el) {
       return {error: "cannot find Web Component"};
     }
@@ -47,10 +47,10 @@ async function evalComponent(page, shadowTreePaths) {
       resolve(extractInfo(el));
     });
     return p;
-  }, shadowTreePaths);
+  }, shadowTreePaths, slideNumber);
 }
 
-describe("Test loading a single slide", function() {
+describe("Test loading slides", function() {
   this.slow(20000);
   this.timeout(20000);
   before(async () => {
@@ -69,6 +69,36 @@ describe("Test loading a single slide", function() {
     if (!debug) await page.close();
 
   });
+
+  it("loads multiple shower slides", async () => {
+    const page = await browser.newPage();
+    page.on("console", msg => console.log(msg));
+    await page.goto(baseUrl + 'shower-multiple-islide.html');
+    const res1 = await evalComponent(page, [["img", "src"]], 0);
+    assert.equal(res1.error, undefined);
+    assert.equal(res1.width, 300);
+    assert.deepEqual(res1.img, rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg");
+
+    const res2 = await evalComponent(page, [["ol"]], 1);
+    assert.equal(res2.error, undefined);
+    assert.equal(res2.width, 500);
+    assert(res2.ol);
+
+    const res3 = await evalComponent(page, [["p"]], 2);
+    assert.equal(res3.error, undefined);
+    assert.equal(res3.width, 300);
+    assert(res3.p);
+
+    const res4 = await evalComponent(page, [["a", "href"]], 3);
+    assert.equal(res4.error, undefined);
+    assert.equal(res4.a, baseUrl + "shower.html#25");
+
+    // TODO: test scale was calculated only once
+
+    if (!debug) await page.close();
+
+  });
+
 
   it("loads a single b6+ slide", async () => {
     const page = await browser.newPage();
