@@ -2,7 +2,7 @@
 
 This repository hosts a Web component that may be used to inline individual HTML/PDF slides of a slide set in an HTML page.
 
-***Warning:*** This component is at early stages of development and only supports a minimal set of features!
+**Warning:** This component is at early stages of development and only supports a minimal set of features!
 
 
 ## Usage
@@ -29,12 +29,12 @@ This repository hosts a Web component that may be used to inline individual HTML
     <p>Note: the height is set automatically based on the slide's aspect ratio.</p>
 
     <!-- Web component must be loaded as a module -->
-    <script src="https://tidoust.github.io/i-slide/i-slide.js" type="module"></script>
+    <script src="https://w3c.github.io/i-slide/i-slide.js" type="module"></script>
   </body>
 </html>
 ```
 
-***Important:*** If the slide set is served from an origin different from the one where the component is used, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) must be enabled for the slide set, meaning that the HTTP server that hosts the slide set needs to return an `Access-Control-Allow-Origin: *` HTTP header. This may already be the case (for instance, CORS is already enabled for all pages under `*.github.io`).
+**Important:** If the slide set is served from an origin different from the one where the component is used, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) must be enabled for the slide set, meaning that the HTTP server that hosts the slide set needs to return an `Access-Control-Allow-Origin: *` HTTP header. This may already be the case (for instance, CORS is already enabled for all pages under `*.github.io`).
 
 ### Constraints
 
@@ -73,7 +73,7 @@ This Web component includes logic to retrieve and render the slide set only once
 
 Authors so far are [François Daoust](https://github.com/tidoust/) and [Dominique Hazaël-Massieux](https://github.com/dontcallmedom/).
 
-Additional ideas, bugs and/or code contributions are most welcome. Create [issues on GitHub](https://github.com/w3c/issues) as needed!
+Additional ideas, bugs and/or code contributions are most welcome. Create [issues on GitHub](https://github.com/w3c/i-slide/issues) as needed!
 
 
 ## Licensing
