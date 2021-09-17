@@ -226,10 +226,36 @@ class ISlide extends HTMLElement {
 
     const width = parseInt(this.getAttribute('width') ?? 300, 10);
 
+    // Retrieve styles to be applied to :host
+    function getHostStyles(height) {
+      const heightProp = height ? `
+        height: ${height}px;
+      ` : '';
+
+      return `
+        :host {
+          display: block;
+          position: relative;
+          overflow: hidden;
+          ${heightProp}
+        }
+        :host([hidden]) {
+          display: none;
+        }
+      `;
+    }
+
+    // Whatever the format, we'll need to tell the browser
+    // that the custom element is a block element and add
+    // a rule to react to the presence of a "hidden" attr
+    const hostStyleEl = document.createElement('style');
+    hostStyleEl.textContent = getHostStyles();
+
     try {
       if (cacheEntry.type === 'error') {
         throw new Error(cacheEntry.msg);
       }
+
       if (cacheEntry.type === 'pdf') {
         const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
         const eventBus = new pdfjsViewer.EventBus();
@@ -264,7 +290,7 @@ class ISlide extends HTMLElement {
         // Associates the actual page with the view, and drawing it
         pdfPageView.setPdfPage(page);
 
-        this.shadowRoot.append(styleEl, divEl);
+        this.shadowRoot.append(hostStyleEl, styleEl, divEl);
 
         return pdfPageView.draw();
       }
@@ -312,12 +338,8 @@ class ISlide extends HTMLElement {
         // Set the custom element's height
         // (cannot let CSS compute the height because slides are absolutely
         // positioned most of the time...)
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-        :host { display: block; height: ${height}px;}
-        :host([hidden]) { display: none; }
-      `;
-        headEl.appendChild(styleEl);
+        hostStyleEl.textContent = getHostStyles(height);
+        headEl.appendChild(hostStyleEl);
 
         htmlEl.appendChild(headEl);
         htmlEl.appendChild(bodyEl);
@@ -325,10 +347,7 @@ class ISlide extends HTMLElement {
         function scaleContent() {
           const scale = width / cacheEntry.width;
           height = cacheEntry.height * scale;
-          styleEl.textContent = `
-        :host { display: block; height: ${height}px; }
-        :host([hidden]) { display: none; }
-      `;
+          hostStyleEl.textContent = getHostStyles(height);
           bodyEl.style.transform = `scale(${scale})`;
         }
 
@@ -355,12 +374,7 @@ class ISlide extends HTMLElement {
       this.shadowRoot.innerHTML = "";
       const doc = document.createElement('div');
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
-      const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        :host { display: block; }
-        :host([hidden]) { display: none; }
-      `;
-      this.shadowRoot.append(styleEl, doc);
+      this.shadowRoot.append(hostStyleEl, doc);
     }
   }
 
