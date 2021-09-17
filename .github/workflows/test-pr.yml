@@ -1,9 +1,8 @@
 on:
-  push:
-    branches: main
   pull_request:
     branches: main
-name: test
+
+name: Test PR
 
 jobs:
   test:
