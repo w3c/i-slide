@@ -2,6 +2,9 @@
  * i-slide: Web component to display inline slides
  */
 
+
+const defaultAspectRatio = 16/9;
+
 /**
  * Local cache for holding fetched and parsed slide decks
  */
@@ -10,10 +13,14 @@ const cache = {};
 
 
 /**
- * List of pending fetches for the cache to avoid re-entrance issues
+ * List of pending fetches for the cache to avoid re-entrancy issues
  */
 const pendingFetch = {};
 
+/**
+ * List of pending dimensions calculations for the cache to avoid re-entrancy issues
+ */
+const pendingDimensions = {};
 
 /**
  * PDF libraries
@@ -121,10 +128,10 @@ class ISlide extends HTMLElement {
     try {
       const resp = await fetch(docUrl);
       if (resp.status !== 200) {
-        console.error(
-          'Could not fetch slide deck', docUrl,
-          'HTTP status code received is', resp.status);
-        cache[docUrl] = { type: 'error' };
+        cache[docUrl] = {
+          type: 'error',
+          message: `Could not fetch slide deck ${docUrl} - HTTP status code received is ${resp.status}`
+        };
         return;
       }
       const contentType = resp.headers.get('Content-Type');
@@ -170,13 +177,38 @@ class ISlide extends HTMLElement {
       }
     }
     catch (err) {
-      console.error('Could not fetch slide deck', docUrl, err);
-      cache[docUrl] = { type: 'error' };
+      cache[docUrl] = { type: 'error', msg: `Could not fetch slide deck ${docUrl}: ${err.message}`, err };
     }
     finally {
       pendingResolve();
       delete pendingFetch[docUrl];
     }
+  }
+
+  // We need the slide to be rendered with its styles
+  // to measure its pixel dimensions
+  // We do that only once per slideset to minimize flash of resizing
+  async calculateHTMLDimensions(slideEl, stylesLoaded) {
+    const docUrl = this.src.split('#')[0];
+    const cacheEntry = cache[docUrl];
+
+    // Retrieve slide deck's width from cache when possible
+    if (pendingDimensions[docUrl]) {
+      await pendingDimensions[docUrl];
+    }
+    if (cacheEntry.width) {
+      return;
+    }
+
+    let pendingResolve;
+    // Mark the dimensions as pending to avoid re-entrancy issues
+    pendingDimensions[docUrl] = new Promise(res => pendingResolve = res);
+
+    await stylesLoaded;
+    cacheEntry.width = slideEl.clientWidth;
+    cacheEntry.height = slideEl.clientHeight;
+    delete pendingDimensions[docUrl];
+    pendingResolve();
   }
 
 
@@ -194,44 +226,132 @@ class ISlide extends HTMLElement {
 
     const width = parseInt(this.getAttribute('width') ?? 300, 10);
 
-    if (cacheEntry.type === 'pdf') {
-      const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
-      const eventBus = new pdfjsViewer.EventBus();
-      // TODO: Parse "page=x" properly
-      const pageNumber = parseInt(slideId.slice(5));
-      const pdf = cacheEntry.pdf;
-      const page = await pdf.getPage(pageNumber);
+    try {
+      if (cacheEntry.type === 'error') {
+        throw new Error(cacheEntry.msg);
+      }
+      if (cacheEntry.type === 'pdf') {
+        const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
+        const eventBus = new pdfjsViewer.EventBus();
+        // TODO: Parse "page=x" properly
+        const pageNumber = parseInt(slideId.slice(5));
+        const pdf = cacheEntry.pdf;
+        const page = await pdf.getPage(pageNumber);
 
-      const styleEl = document.createElement('link');
-      styleEl.rel = 'stylesheet';
-      styleEl.href = 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.css';
+        const styleEl = document.createElement('link');
+        styleEl.rel = 'stylesheet';
+        styleEl.href = 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.css';
 
-      const divEl = document.createElement('div');
-      // Needed to properly position the annotation layer (e.g. links)
-      divEl.style.position = "relative";
+        const divEl = document.createElement('div');
+        // Needed to properly position the annotation layer (e.g. links)
+        divEl.style.position = "relative";
 
-      // Make slides fit the defined width of the component
-      // (Note the need to convert from
-      // CSS points to CSS pixels for page dimensions)
-      const scale = (width / page.view[2]) * 72/96;
-      const viewport = page.getViewport({ scale });
-      var pdfPageView = new pdfjsViewer.PDFPageView({
-        container: divEl,
-        id: pageNumber,
-        scale: scale,
-        defaultViewport: viewport,
-        eventBus: eventBus,
-        textLayerFactory: new pdfjsViewer.DefaultTextLayerFactory(),
-        annotationLayerFactory: new pdfjsViewer.DefaultAnnotationLayerFactory()
-      });
-      // Associates the actual page with the view, and drawing it
-      pdfPageView.setPdfPage(page);
+        // Make slides fit the defined width of the component
+        // (Note the need to convert from
+        // CSS points to CSS pixels for page dimensions)
+        const scale = (width / page.view[2]) * 72/96;
+        const viewport = page.getViewport({ scale });
+        var pdfPageView = new pdfjsViewer.PDFPageView({
+          container: divEl,
+          id: pageNumber,
+          scale: scale,
+          defaultViewport: viewport,
+          eventBus: eventBus,
+          textLayerFactory: new pdfjsViewer.DefaultTextLayerFactory(),
+          annotationLayerFactory: new pdfjsViewer.DefaultAnnotationLayerFactory()
+        });
+        // Associates the actual page with the view, and drawing it
+        pdfPageView.setPdfPage(page);
 
-      this.shadowRoot.append(styleEl, divEl);
+        this.shadowRoot.append(styleEl, divEl);
 
-      return pdfPageView.draw();
-    }
-    else if (cacheEntry.type === 'error') {
+        return pdfPageView.draw();
+      }
+      else {
+        const { type, doc } = cache[docUrl];
+
+
+        const headEl = doc.querySelector('head').cloneNode(true);
+        const bodyEl = doc.querySelector('body').cloneNode();
+        const slideNumber = parseInt(slideId, 10);
+        const origSlideEl = doc.querySelectorAll('.slide')[slideNumber - 1];
+        if (!origSlideEl) throw new Error(`Could not find slide ${slideNumber} in ${docUrl}`);
+        const slideEl = origSlideEl.cloneNode(true) ;
+        slideEl.style.marginLeft = '0';
+        bodyEl.style.top = 'inherit';
+        bodyEl.style.left = 'inherit';
+        bodyEl.style.margin = 'inherit';
+
+        //  Works for Shower and b6
+        slideEl.classList.add('active');
+        bodyEl.classList.add('full');
+        bodyEl.classList.remove('list');
+
+        // Specific to Shower with CSS Variables
+        slideEl.style.setProperty('--slide-scale', 1);
+
+        bodyEl.appendChild(slideEl);
+
+        const styleLoadedPromises = [];
+        [...headEl.querySelectorAll("link[rel~=stylesheet]")].map(l => {
+          let resolve;
+          const p = new Promise((res) => resolve = res);
+          l.addEventListener("load", resolve);
+          l.addEventListener("error", resolve);
+          styleLoadedPromises.push(p);
+        });
+        // Attach HTML document to shadow root
+        const htmlEl = document.createElement('html');
+
+        // before we can properly resize the slide, we start with defined width
+        // and apply the default aspect ratio to get the height
+        let height = width / defaultAspectRatio;
+
+        bodyEl.style.transformOrigin = '0 0';
+        // Set the custom element's height
+        // (cannot let CSS compute the height because slides are absolutely
+        // positioned most of the time...)
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+        :host { display: block; height: ${height}px;}
+        :host([hidden]) { display: none; }
+      `;
+        headEl.appendChild(styleEl);
+
+        htmlEl.appendChild(headEl);
+        htmlEl.appendChild(bodyEl);
+
+        function scaleContent() {
+          const scale = width / cacheEntry.width;
+          height = cacheEntry.height * scale;
+          styleEl.textContent = `
+        :host { display: block; height: ${height}px; }
+        :host([hidden]) { display: none; }
+      `;
+          bodyEl.style.transform = `scale(${scale})`;
+        }
+
+        if (cacheEntry.width) {
+          scaleContent();
+          this.shadowRoot.append(htmlEl);
+        } else {
+          // we hide the slide on the left
+          // to avoid showing bogusly scaled content
+          slideEl.style.marginLeft = "-2000px";
+          this.shadowRoot.append(htmlEl);
+          // Once we know the real dimensions of the slide…
+          await this.calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
+          // we can rescale it as appropriate
+          scaleContent();
+          // and move it back in the flow
+          slideEl.style.marginLeft = "inherit";
+        }
+
+
+      }
+    } catch (err) {
+      console.error(err);
+      this.shadowRoot.innerHTML = "";
       const doc = document.createElement('div');
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
       const styleEl = document.createElement('style');
@@ -240,62 +360,6 @@ class ISlide extends HTMLElement {
         :host([hidden]) { display: none; }
       `;
       this.shadowRoot.append(styleEl, doc);
-    }
-    else {
-      const { type, doc } = cache[docUrl];
-
-
-      const headEl = doc.querySelector('head').cloneNode(true);
-      const bodyEl = doc.querySelector('body').cloneNode();
-
-      const slideEl = doc.querySelectorAll('.slide')[parseInt(slideId, 10) - 1].cloneNode(true) ;
-      slideEl.style.marginLeft = '0';
-      bodyEl.style.top = 'inherit';
-      bodyEl.style.left = 'inherit';
-      bodyEl.style.margin = 'inherit';
-
-      //  Works for Shower and b6
-      slideEl.classList.add('active');
-      bodyEl.classList.add('full');
-      bodyEl.classList.remove('list');
-
-      // Specific to Shower with CSS Variables
-      slideEl.style.setProperty('--slide-scale', 1);
-
-      bodyEl.appendChild(slideEl);
-
-      const styleLoadedPromises = [];
-      [...headEl.querySelectorAll("link[rel~=stylesheet]")].map(l => {
-        let resolve;
-        const p = new Promise((res) => resolve = res);
-        l.addEventListener("load", resolve);
-        l.addEventListener("error", resolve);
-        styleLoadedPromises.push(p);
-      });
-      // Attach HTML document to shadow root
-      const htmlEl = document.createElement('html');
-      htmlEl.appendChild(headEl);
-      htmlEl.appendChild(bodyEl);
-
-      this.shadowRoot.append(htmlEl);
-      // We need the slide to be rendered with its styles
-      // to measure its pixel dimensions
-      await Promise.all(styleLoadedPromises);
-
-      const scale = width / slideEl.clientWidth;
-      const height = slideEl.clientHeight * scale;
-      bodyEl.style.transformOrigin = '0 0';
-      bodyEl.style.transform = `scale(${scale})`;
-
-      // Set the custom element's height
-      // (cannot let CSS compute the height because slides are absolutely
-      // positioned most of the time...)
-      const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        :host { display: block; height: ${height}px; }
-        :host([hidden]) { display: none; }
-      `;
-      headEl.appendChild(styleEl);
     }
   }
 
