@@ -2,6 +2,9 @@
  * i-slide: Web component to display inline slides
  */
 
+
+const defaultAspectRatio = 16/9;
+
 /**
  * Local cache for holding fetched and parsed slide decks
  */
@@ -10,10 +13,14 @@ const cache = {};
 
 
 /**
- * List of pending fetches for the cache to avoid re-entrance issues
+ * List of pending fetches for the cache to avoid re-entrancy issues
  */
 const pendingFetch = {};
 
+/**
+ * List of pending dimensions calculations for the cache to avoid re-entrancy issues
+ */
+const pendingDimensions = {};
 
 /**
  * PDF libraries
@@ -178,6 +185,32 @@ class ISlide extends HTMLElement {
     }
   }
 
+  // We need the slide to be rendered with its styles
+  // to measure its pixel dimensions
+  // We do that only once per slideset to minimize flash of resizing
+  async calculateHTMLDimensions(slideEl, stylesLoaded) {
+    const docUrl = this.src.split('#')[0];
+    const cacheEntry = cache[docUrl];
+
+    // Retrieve slide deck's width from cache when possible
+    if (pendingDimensions[docUrl]) {
+      await pendingDimensions[docUrl];
+    }
+    if (cacheEntry.width) {
+      return;
+    }
+
+    let pendingResolve;
+    // Mark the dimensions as pending to avoid re-entrancy issues
+    pendingDimensions[docUrl] = new Promise(res => pendingResolve = res);
+
+    await stylesLoaded;
+    cacheEntry.width = slideEl.clientWidth;
+    cacheEntry.height = slideEl.clientHeight;
+    delete pendingDimensions[docUrl];
+    pendingResolve();
+  }
+
 
   /**
    * Render the requested slide
@@ -270,27 +303,35 @@ class ISlide extends HTMLElement {
         // Attach HTML document to shadow root
         const htmlEl = document.createElement('html');
 
+        // before we can properly resize the slide, we start with defined width
+        // and apply the default aspect ratio to get the height
+        let height = width / defaultAspectRatio;
+
+        bodyEl.style.transformOrigin = '0 0';
+        // Set the custom element's height
+        // (cannot let CSS compute the height because slides are absolutely
+        // positioned most of the time...)
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+        :host { display: block; height: ${height}px; overflow: hidden;}
+        :host([hidden]) { display: none; }
+      `;
+        headEl.appendChild(styleEl);
+
         htmlEl.appendChild(headEl);
         htmlEl.appendChild(bodyEl);
 
         this.shadowRoot.append(htmlEl);
-        // We need the slide to be rendered with its styles
-        // to measure its pixel dimensions
-        await Promise.all(styleLoadedPromises)
-
-        const scale = width / slideEl.clientWidth;
-        const height = slideEl.clientHeight * scale;
-        bodyEl.style.transformOrigin = '0 0';
-        bodyEl.style.transform = `scale(${scale})`;
- 
-        // Set the custom element's height
-        // (cannot let CSS compute the height because slides are absolutely
-        // positioned most of the time...)
+        // Once we know the real dimensions of the slide…
+        await this.calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
+        // we can rescale it as appropriate
+        const scale = width / cacheEntry.width;
+        height = cacheEntry.height * scale;
         styleEl.textContent = `
-         :host { display: block; height: ${height}px; }
-         :host([hidden]) { display: none; }
-       `;
-       headEl.appendChild(styleEl);
+        :host { display: block; height: ${height}px; }
+        :host([hidden]) { display: none; }
+      `;
+        bodyEl.style.transform = `scale(${scale})`;
       }
     } catch (err) {
       console.error(err);
