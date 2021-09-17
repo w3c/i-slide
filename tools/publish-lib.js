@@ -80,6 +80,8 @@ async function main() {
 
   console.log('Commit changes to gh-pages branch...');
   await execFile('git', ['add', 'i-slide*.js']);
+  await execFile('git', ['add', 'README.md']);
+  await execFile('git', ['add', 'LICENSE']);
   const { stdout: diffOut } = await execFile('git', ['diff', '--staged', '--compact-summary']);
   if (diffOut.trim()) {
     console.log(diffOut);
