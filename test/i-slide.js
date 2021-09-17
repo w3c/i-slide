@@ -24,13 +24,13 @@ async function evalComponent(page, shadowTreePaths, slideNumber = 0) {
   return page.evaluate(async (shadowTreePaths, slideNumber) => {
     function extractInfo(el) {
       const res = {};
-      if (el.shadowRoot.querySelector("body")) {
-        const {height, width} = el.shadowRoot.querySelector("body").getBoundingClientRect();
-        res.height = Math.floor(height);
-        res.width = Math.floor(width);
-      }
-      for ([child, attr] of shadowTreePaths) {
-        res[child] = attr ? el.shadowRoot.querySelector(child)?.getAttribute(attr) : !!el.shadowRoot.querySelector(child);
+      for (let path of shadowTreePaths) {
+        if (path === ".width") {
+          res[".width"] = Math.floor(el.shadowRoot.querySelector("body").getBoundingClientRect().width);
+        } else {
+          const [child, attr] = path.split(".");
+          res[path] = attr ? el.shadowRoot.querySelector(child)?.getAttribute(attr) : !!el.shadowRoot.querySelector(child);
+        }
       }
       return res;
     }
@@ -50,136 +50,200 @@ async function evalComponent(page, shadowTreePaths, slideNumber = 0) {
   }, shadowTreePaths, slideNumber);
 }
 
+const islideLoader = `
+<!DOCTYPE html>
+<html>
+  <script src="${rootUrl}/i-slide.js" type="module" defer></script>
+  <body>`;
+
+const tests = [
+  {title: "loads a single shower slide",
+   slides: [ { url: "shower.html#1" } ],
+   expects: [ // for each i-slide component in the page
+     [ // a series of expectations
+       {
+         path: "img.src", // the Shadow DOM "path" being evaluated
+         result: rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg"
+       },
+       {
+         path: ".width", // FIXME: not an actual DOM path
+         result: 300
+       }
+     ]
+   ]
+  },
+  {title:"loads multiple shower slides",
+   slides: [ { url: "shower.html#1" }, { url: "shower.html#2", width: 500 }, { url: "shower.html#4" }, { url: "shower.html#25" } ],
+   expects: [
+     [
+       {
+         path: "img.src",
+         result: rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg"
+       },
+       {
+         path: ".width",
+         result: 300
+       }
+     ],
+     [
+       {
+         path: "ol",
+         result: true
+       },
+       {
+         path: ".width",
+         result: 500
+       }
+     ],
+     [
+       {
+         path: "p",
+         result: true
+       },
+       {
+         path: ".width",
+         result: 300
+       }
+     ],
+     [
+       {
+         path: "a.href",
+         result: baseUrl + "shower.html#25"
+       }
+     ]
+   ]
+  },
+  {title: "loads a single b6+ slide",
+   slides: [ { url: "https://www.w3.org/Talks/Tools/b6plus/#3" } ],
+   expects: [
+     [
+       {
+         path: "a.href",
+          result: "https://www.w3.org/Talks/Tools/b6plus/simple.css"
+       },
+       {
+         path: ".width",
+          result: 300
+       }
+     ]
+   ]
+  },
+  {title: "loads a single PDF slide",
+   slides: [ { url: "slides.pdf#page=1"} ],
+   expects: [
+     [
+       {
+         path: "canvas.width",
+         result: 300
+       },
+       {
+         path: "a.href",
+         result: "https://github.com/tidoust/i-slide/"
+       }
+     ]
+   ]
+  },
+  {title: "loads multiple PDF slides",
+   slides: [ { url: "slides.pdf#page=1"}, { url: "slides.pdf#2"}, { url: "slides.pdf#foo"}, { url: "slides.pdf#45"} ],
+   expects: [
+     [
+       {
+         path: "canvas.width",
+         result: 300
+       },
+       {
+         path: "a.href",
+         result: "https://github.com/tidoust/i-slide/"
+       }
+     ],
+     [
+       {
+         path: "canvas.width",
+         result: 300
+       }
+     ],
+     [
+       {
+         path: "a.href",
+         result: baseUrl + "slides.pdf#foo"
+       }
+     ],
+     [
+       {
+         path: "a.href",
+         result: baseUrl + "slides.pdf#45"
+       }
+     ]
+   ]
+  },
+  {title: "fallbacks to a link on CORS error",
+   slides: [ {url: "about:blank#1"} ],
+   expects: [
+     [
+       {
+         path: "a.href",
+         result: "about:blank#1"
+       }
+     ]
+   ]
+  },
+  {title: "fallback to a link on fetch errors",
+   slides: [ {url: "about:blank#1"}, { url: "about:blank#1", innerHTML: "<span>Fallback</span>"}, {url: "404.html" } ],
+   expects: [
+     [
+       {
+         path: "a.href",
+         result: "about:blank#1"
+       }
+     ],
+     [
+       {
+         path: "span",
+         result: true
+       }
+     ],
+     [
+       {
+         path: "a.href",
+         result: baseUrl + "404.html"
+       }
+     ]
+   ]
+  }
+];
+
 describe("Test loading slides", function() {
-  this.slow(20000);
-  this.timeout(20000);
+  this.slow(5000);
+  this.timeout(5000);
   before(async () => {
     server.listen(port);
     browser = await puppeteer.launch({ headless: !debug });
   });
 
-  it("loads a single shower slide", async () => {
-    const page = await browser.newPage();
-    page.on("console", msg => console.log(msg));
-    await page.goto(baseUrl + 'shower-islide.html');
-    const res = await evalComponent(page, [["img", "src"]]);
-    assert.equal(res.error, undefined);
-    assert.equal(res.width, 300);
-    assert.deepEqual(res.img, rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg");
-    if (!debug) await page.close();
-
+  tests.forEach(t => {
+    it(t.title, async() => {
+      const page = await browser.newPage();
+      await page.setRequestInterception(true);
+      const injectContent = async req => {
+        const html = t.slides.map(s => `<i-slide src="${new URL(s.url, baseUrl).href}" ${s.width ? `width=${s.width}`: ""}}>${s.innerHTML ?? ""}</i-slide>`).join("\n");
+        req.respond({
+          body: islideLoader + html
+        });
+        await page.setRequestInterception(false);
+      };
+      page.once('request', injectContent);
+      page.on("console", msg => console.log(msg));
+      await page.goto(rootUrl);
+      for (let i = 0 ; i < t.expects.length; i++) {
+        const paths = t.expects[i].map(e => e.path);
+        const res = await evalComponent(page, paths, i);
+        for (let e of t.expects[i]) {
+          assert.equal(res[e.path], e.result);
+        }
+      }
+    });
   });
 
-  it("loads multiple shower slides", async () => {
-    const page = await browser.newPage();
-    page.on("console", msg => console.log(msg));
-    await page.goto(baseUrl + 'shower-multiple-islide.html');
-    const res1 = await evalComponent(page, [["img", "src"]], 0);
-    assert.equal(res1.error, undefined);
-    assert.equal(res1.width, 300);
-    assert.deepEqual(res1.img, rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg");
-
-    const res2 = await evalComponent(page, [["ol"]], 1);
-    assert.equal(res2.error, undefined);
-    assert.equal(res2.width, 500);
-    assert(res2.ol);
-
-    const res3 = await evalComponent(page, [["p"]], 2);
-    assert.equal(res3.error, undefined);
-    assert.equal(res3.width, 300);
-    assert(res3.p);
-
-    const res4 = await evalComponent(page, [["a", "href"]], 3);
-    assert.equal(res4.error, undefined);
-    assert.equal(res4.a, baseUrl + "shower.html#25");
-
-    // TODO: test scale was calculated only once
-
-    if (!debug) await page.close();
-
-  });
-
-
-  it("loads a single b6+ slide", async () => {
-    const page = await browser.newPage();
-    page.on("console", msg => console.log(msg));
-    await page.goto(baseUrl + 'b6+-islide.html');
-    const res = await evalComponent(page, [["a", "href"]]);
-    assert.equal(res.error, undefined);
-    assert.equal(res.width, 300);
-    assert.deepEqual(res.a, "https://www.w3.org/Talks/Tools/b6plus/simple.css");
-    if (!debug) await page.close();
-
-  });
-
-
-  it("loads a single PDF slide", async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + 'pdf-islide.html');
-    const res = await evalComponent(page, [["canvas", "width"], ["a", "href"]]);
-    assert.equal(res.error, undefined);
-    assert.equal(res.canvas, 300);
-    assert.equal(res.a, "https://github.com/tidoust/i-slide/");
-    if (!debug) await page.close();
-
-  });
-
-  it("loads multiple PDF slides", async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + 'pdf-multi-islide.html');
-    const res1 = await evalComponent(page, [["canvas", "width"], ["a", "href"]]);
-    assert.equal(res1.error, undefined);
-    assert.equal(res1.canvas, 300);
-    assert.equal(res1.a, "https://github.com/tidoust/i-slide/");
-
-    const res2 = await evalComponent(page, [["canvas", "width"]], 1);
-    assert.equal(res2.error, undefined);
-    assert.equal(res2.canvas, 400);
-
-    const res3 = await evalComponent(page, [["a", "href"]], 2);
-    assert.equal(res3.error, undefined);
-    assert.equal(res3.a, baseUrl + "slides.pdf#foo");
-
-    const res4 = await evalComponent(page, [["a", "href"]], 3);
-    assert.equal(res4.error, undefined);
-    assert.equal(res4.a, baseUrl + "slides.pdf#45");
-
-    if (!debug) await page.close();
-
-  });
-
-  it("falls back to a link by default", async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + 'error-islide.html');
-    const res = await evalComponent(page, [["a", "href"]]);
-    assert.equal(res.error, undefined);
-    assert.equal(res.a, "about:blank#1");
-    if (!debug) await page.close();
-
-  });
-
-  it("falls back to the inner content when defined", async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + 'error-2-islide.html');
-    const res = await evalComponent(page, [["span"]]);
-    assert.equal(res.error, undefined);
-    assert(res.span);
-    if (!debug) await page.close();
-
-  });
-
-  it("falls back when slide set is a 404", async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + '404-islide.html');
-    const res = await evalComponent(page, [["a", "href"]]);
-    assert.equal(res.error, undefined);
-    assert.equal(res.a, "http://localhost:8081/test/resources/404#1");
-    if (!debug) await page.close();
-
-  });
-
-  // TO TEST
-  // multiple slides, single fetch
 
   after(async () => {
     if (!debug) {
