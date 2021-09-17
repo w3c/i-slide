@@ -235,7 +235,7 @@ class ISlide extends HTMLElement {
         const eventBus = new pdfjsViewer.EventBus();
         const m = slideId.match(/^(page=)?(\d+)$/);
         if (!m) throw new Error(`Unrecognized PDF fragment ${slideId}`);
-        const pageNumber = parseInt(m[2]);
+        const pageNumber = parseInt(m[2], 10);
         const pdf = cacheEntry.pdf;
         const page = await pdf.getPage(pageNumber);
 
