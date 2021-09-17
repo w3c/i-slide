@@ -89,6 +89,10 @@ describe("Test loading slides", function() {
     assert.equal(res3.width, 300);
     assert(res3.p);
 
+    const res4 = await evalComponent(page, [["a", "href"]], 3);
+    assert.equal(res4.error, undefined);
+    assert.equal(res4.a, baseUrl + "shower.html#25");
+
     // TODO: test scale was calculated only once
 
     if (!debug) await page.close();
