@@ -316,6 +316,7 @@ class ISlide extends HTMLElement {
         :host { display: block; height: ${height}px; overflow: hidden;}
         :host([hidden]) { display: none; }
       `;
+        slideEl.style.marginLeft = "-2000px";
         headEl.appendChild(styleEl);
 
         htmlEl.appendChild(headEl);
@@ -331,6 +332,7 @@ class ISlide extends HTMLElement {
         :host { display: block; height: ${height}px; }
         :host([hidden]) { display: none; }
       `;
+        slideEl.style.marginLeft = "inherit";
         bodyEl.style.transform = `scale(${scale})`;
       }
     } catch (err) {
