@@ -124,6 +124,30 @@ describe("Test loading slides", function() {
 
   });
 
+  it("loads multiple PDF slides", async () => {
+    const page = await browser.newPage();
+    await page.goto(baseUrl + 'pdf-multi-islide.html');
+    const res1 = await evalComponent(page, [["canvas", "width"], ["a", "href"]]);
+    assert.equal(res1.error, undefined);
+    assert.equal(res1.canvas, 300);
+    assert.equal(res1.a, "https://github.com/tidoust/i-slide/");
+
+    const res2 = await evalComponent(page, [["canvas", "width"]], 1);
+    assert.equal(res2.error, undefined);
+    assert.equal(res2.canvas, 400);
+
+    const res3 = await evalComponent(page, [["a", "href"]], 2);
+    assert.equal(res3.error, undefined);
+    assert.equal(res3.a, baseUrl + "slides.pdf#foo");
+
+    const res4 = await evalComponent(page, [["a", "href"]], 3);
+    assert.equal(res4.error, undefined);
+    assert.equal(res4.a, baseUrl + "slides.pdf#45");
+
+    if (!debug) await page.close();
+
+  });
+
   it("falls back to a link by default", async () => {
     const page = await browser.newPage();
     await page.goto(baseUrl + 'error-islide.html');
