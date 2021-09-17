@@ -313,7 +313,7 @@ class ISlide extends HTMLElement {
         // positioned most of the time...)
         const styleEl = document.createElement('style');
         styleEl.textContent = `
-        :host { display: block; height: ${height}px; overflow: hidden;}
+        :host { display: block; height: ${height}px;}
         :host([hidden]) { display: none; }
       `;
         headEl.appendChild(styleEl);
