@@ -316,24 +316,38 @@ class ISlide extends HTMLElement {
         :host { display: block; height: ${height}px; overflow: hidden;}
         :host([hidden]) { display: none; }
       `;
-        slideEl.style.marginLeft = "-2000px";
         headEl.appendChild(styleEl);
 
         htmlEl.appendChild(headEl);
         htmlEl.appendChild(bodyEl);
 
-        this.shadowRoot.append(htmlEl);
-        // Once we know the real dimensions of the slide…
-        await this.calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
-        // we can rescale it as appropriate
-        const scale = width / cacheEntry.width;
-        height = cacheEntry.height * scale;
-        styleEl.textContent = `
+        function scaleContent() {
+          const scale = width / cacheEntry.width;
+          height = cacheEntry.height * scale;
+          styleEl.textContent = `
         :host { display: block; height: ${height}px; }
         :host([hidden]) { display: none; }
       `;
-        slideEl.style.marginLeft = "inherit";
-        bodyEl.style.transform = `scale(${scale})`;
+          bodyEl.style.transform = `scale(${scale})`;
+        }
+
+        if (cacheEntry.width) {
+          scaleContent();
+          this.shadowRoot.append(htmlEl);
+        } else {
+          // we hide the slide on the left
+          // to avoid showing bogusly scaled content
+          slideEl.style.marginLeft = "-2000px";
+          this.shadowRoot.append(htmlEl);
+          // Once we know the real dimensions of the slide…
+          await this.calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
+          // we can rescale it as appropriate
+          scaleContent();
+          // and move it back in the flow
+          slideEl.style.marginLeft = "inherit";
+        }
+
+
       }
     } catch (err) {
       console.error(err);
