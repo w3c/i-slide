@@ -214,7 +214,7 @@ const tests = [
 
 describe("Test loading slides", function() {
   this.slow(5000);
-  this.timeout(5000);
+  this.timeout(20000);
   before(async () => {
     server.listen(port);
     browser = await puppeteer.launch({ headless: !debug });
