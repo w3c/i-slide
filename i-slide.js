@@ -177,7 +177,7 @@ class ISlide extends HTMLElement {
       }
     }
     catch (err) {
-      cache[docUrl] = { type: 'error', msg: `Could not fetch slide deck ${docUrl}: ${err.message}`, err };
+      cache[docUrl] = { type: 'error', message: `Could not fetch slide deck ${docUrl}: ${err.message}`, err };
     }
     finally {
       pendingResolve();
@@ -235,8 +235,6 @@ class ISlide extends HTMLElement {
       return `
         :host {
           display: block;
-          position: relative;
-          overflow: hidden;
           ${heightProp}
         }
         :host([hidden]) {
@@ -253,7 +251,7 @@ class ISlide extends HTMLElement {
 
     try {
       if (cacheEntry.type === 'error') {
-        throw new Error(cacheEntry.msg);
+        throw new Error(cacheEntry.message);
       }
 
       if (cacheEntry.type === 'pdf') {
@@ -272,6 +270,7 @@ class ISlide extends HTMLElement {
         const divEl = document.createElement('div');
         // Needed to properly position the annotation layer (e.g. links)
         divEl.style.position = "relative";
+        divEl.style.overflow = "hidden";
 
         // Make slides fit the defined width of the component
         // (Note the need to convert from
@@ -296,8 +295,6 @@ class ISlide extends HTMLElement {
       }
       else {
         const { type, doc } = cache[docUrl];
-
-
         const headEl = doc.querySelector('head').cloneNode(true);
         const bodyEl = doc.querySelector('body').cloneNode();
         const slideNumber = parseInt(slideId, 10);
@@ -327,12 +324,19 @@ class ISlide extends HTMLElement {
           l.addEventListener("error", resolve);
           styleLoadedPromises.push(p);
         });
-        // Attach HTML document to shadow root
-        const htmlEl = document.createElement('html');
 
         // before we can properly resize the slide, we start with defined width
         // and apply the default aspect ratio to get the height
         let height = width / defaultAspectRatio;
+
+        // Attach HTML document to shadow root, making sure that the content
+        // cannot overflow the <i-slide> element (the height of the <html>
+        // element must be specified because <body> is absoluted positioned in
+        // Shower.js, so height of <html> would be 0 otherwise)
+        const htmlEl = document.createElement('html');
+        htmlEl.style.position = 'relative';
+        htmlEl.style.overflow = 'hidden';
+        htmlEl.style.height = `${height}px`;
 
         bodyEl.style.transformOrigin = '0 0';
         // Set the custom element's height
@@ -347,6 +351,7 @@ class ISlide extends HTMLElement {
         function scaleContent() {
           const scale = width / cacheEntry.width;
           height = cacheEntry.height * scale;
+          htmlEl.style.height = `${height}px`;
           hostStyleEl.textContent = getHostStyles(height);
           bodyEl.style.transform = `scale(${scale})`;
         }
@@ -370,7 +375,7 @@ class ISlide extends HTMLElement {
 
       }
     } catch (err) {
-      console.error(err);
+      console.error(err.toString());
       this.shadowRoot.innerHTML = "";
       const doc = document.createElement('div');
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
