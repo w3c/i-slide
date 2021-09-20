@@ -375,7 +375,7 @@ class ISlide extends HTMLElement {
 
       }
     } catch (err) {
-      console.error(err.toString());
+      console.error(err.toString(), err);
       this.shadowRoot.innerHTML = "";
       const doc = document.createElement('div');
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
