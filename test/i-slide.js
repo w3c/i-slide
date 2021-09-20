@@ -180,7 +180,7 @@ const tests = {
         const styles = window.getComputedStyle(rootEl);
         return `${styles.position}|${styles.overflow}|${styles.height}`;
       },
-      result: "relative|hidden|168.75px" // 300 = 16/9 * 168.75
+      result: `relative|hidden|${300/(16/9)}px`
     }
   },
 
