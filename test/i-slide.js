@@ -178,9 +178,9 @@ const tests = {
       eval: el => {
         const rootEl = window.slideEl.shadowRoot.querySelector("html");
         const styles = window.getComputedStyle(rootEl);
-        return `${styles.position}|${styles.overflow}|${styles.height}`;
+        return `${styles.position}|${styles.overflow}|${styles.width}|${styles.height}`;
       },
-      result: `relative|hidden|${300/(16/9)}px`
+      result: `relative|hidden|300px|${300/(16/9)}px`
     }
   },
 
@@ -190,9 +190,9 @@ const tests = {
       eval: el => {
         const rootEl = window.slideEl.shadowRoot.querySelector("div");
         const styles = window.getComputedStyle(rootEl);
-        return `${styles.position}|${styles.overflow}`;
+        return `${styles.position}|${styles.overflow}|${styles.width}`;
       },
-      result: "relative|hidden"
+      result: "relative|hidden|300px"
     }
   }
 };

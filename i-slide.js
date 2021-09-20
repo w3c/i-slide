@@ -235,6 +235,7 @@ class ISlide extends HTMLElement {
       return `
         :host {
           display: block;
+          width: ${width}px;
           ${heightProp}
         }
         :host([hidden]) {
