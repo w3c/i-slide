@@ -34,7 +34,7 @@ This repository hosts a Web component that may be used to inline individual HTML
 </html>
 ```
 
-See it in action in the [demo page](https://w3c.github.io/i-slide/).
+See it in action in the [demo page](https://w3c.github.io/i-slide/demo.html).
 
 **Important:** If the slide set is served from an origin different from the one where the component is used, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) must be enabled for the slide set, meaning that the HTTP server that hosts the slide set needs to return an `Access-Control-Allow-Origin: *` HTTP header. This may already be the case (for instance, CORS is already enabled for all pages under `*.github.io`).
 
