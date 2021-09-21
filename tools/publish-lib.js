@@ -72,9 +72,11 @@ async function main() {
   console.log('  done');
 
   console.log('Update README, LICENSE and demo.html if needed...');
-  for (const file of ['README.md', 'LICENSE, demo.html']) {
-    const { stdout: fileOut } = await execFile('git', ['show', `${lastTag}:${file}`]);
-    fs.writeFileSync(file, fileOut, 'utf8');
+  for (const file of ['README.md', 'LICENSE', {inpath: 'test/resources/demo.html', outpath: 'demo.html'}]) {
+    const inpath = file.inpath ?? file;
+    const outpath = file.outpath ?? file;
+    const { stdout: fileOut } = await execFile('git', ['show', `${lastTag}:${inpath}`]);
+    fs.writeFileSync(outpath, fileOut, 'utf8');
   }
   console.log('  done');
 
