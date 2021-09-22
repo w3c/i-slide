@@ -71,10 +71,12 @@ async function main() {
   await writeLib('main', `${lib}-nightly`);
   console.log('  done');
 
-  console.log('Update README and LICENSE if needed...');
-  for (const file of ['README.md', 'LICENSE']) {
-    const { stdout: fileOut } = await execFile('git', ['show', `${lastTag}:${file}`]);
-    fs.writeFileSync(file, fileOut, 'utf8');
+  console.log('Update README, LICENSE and demo.html if needed...');
+  for (const file of ['README.md', 'LICENSE', {inpath: 'test/resources/demo.html', outpath: 'demo.html'}]) {
+    const inpath = file.inpath ?? file;
+    const outpath = file.outpath ?? file;
+    const { stdout: fileOut } = await execFile('git', ['show', `${lastTag}:${inpath}`]);
+    fs.writeFileSync(outpath, fileOut, 'utf8');
   }
   console.log('  done');
 
@@ -82,6 +84,7 @@ async function main() {
   await execFile('git', ['add', 'i-slide*.js']);
   await execFile('git', ['add', 'README.md']);
   await execFile('git', ['add', 'LICENSE']);
+  await execFile('git', ['add', 'demo.html']);
   const { stdout: diffOut } = await execFile('git', ['diff', '--staged', '--compact-summary']);
   if (diffOut.trim()) {
     console.log(diffOut);

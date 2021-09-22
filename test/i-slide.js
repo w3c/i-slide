@@ -197,6 +197,17 @@ const tests = {
   }
 };
 
+const demoTestExpectations = [
+  [
+    { path: "ol", result: true }
+  ],
+  [
+    { path: "a@href", result: "https://www.w3.org/Talks/Tools/b6plus/simple.css" }
+  ],
+  [
+    { path: "canvas", result: true }
+  ]
+];
 
 async function evalComponent(page, expectations, slideNumber = 0) {
   try {
@@ -288,8 +299,21 @@ describe("Test loading slides", function() {
           assert.equal(res[k], expects[k].result);
         }
       }
+
     });
   }
+
+  it('loads the slides on the demo page as expected', async () => {
+    const page = await browser.newPage();
+    await page.goto(baseUrl + 'demo.html');
+    for (let i = 0; i < demoTestExpectations; i++) {
+      const expects = demoTestExpectations[i];
+      const res = await evalComponent(page, expects, i);
+      for (let k = 0; k < expects.length; k++) {
+        assert.equal(res[k], expects[k].result);
+      }
+    }
+  });
 
   after(async () => {
     if (!debug) {
