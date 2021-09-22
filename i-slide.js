@@ -226,7 +226,11 @@ class ISlide extends HTMLElement {
 
     const width = parseInt(this.getAttribute('width') ?? 300, 10);
 
-    // Retrieve styles to be applied to :host
+    // Retrieve styles to be applied to the custom element to create something
+    // as close as possible to a "replaced element" in CSS:
+    // - custom element is an inline-block element
+    // - width and height are that of the inner contents
+    // - also, "hidden" attribute needs to be accounted for explicitly
     function getHostStyles(height) {
       const heightProp = height ? `
         height: ${height}px;
@@ -234,7 +238,7 @@ class ISlide extends HTMLElement {
 
       return `
         :host {
-          display: block;
+          display: inline-block;
           width: ${width}px;
           ${heightProp}
         }
@@ -244,9 +248,7 @@ class ISlide extends HTMLElement {
       `;
     }
 
-    // Whatever the format, we'll need to tell the browser
-    // that the custom element is a block element and add
-    // a rule to react to the presence of a "hidden" attr
+    // Styles for the custom element itself
     const hostStyleEl = document.createElement('style');
     hostStyleEl.textContent = getHostStyles();
 

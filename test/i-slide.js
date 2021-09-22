@@ -156,19 +156,19 @@ const tests = {
     }
   ],
 
-  "renders as a block element for HTML slides": {
+  "renders as an inline-block element for HTML slides": {
     slide: "shower.html#1",
     expects: {
       eval: el => window.getComputedStyle(window.slideEl).display,
-      result: "block"
+      result: "inline-block"
     }
   },
 
-  "renders as a block element for PDF slides": {
+  "renders as an inline-block element for PDF slides": {
     slide: "slides.pdf#1",
     expects: {
       eval: el => window.getComputedStyle(window.slideEl).display,
-      result: "block"
+      result: "inline-block"
     }
   },
 
