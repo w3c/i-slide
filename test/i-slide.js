@@ -156,19 +156,19 @@ const tests = {
     }
   ],
 
-  "renders as a block element for HTML slides": {
+  "renders as an inline-block element for HTML slides": {
     slide: "shower.html#1",
     expects: {
       eval: el => window.getComputedStyle(window.slideEl).display,
-      result: "block"
+      result: "inline-block"
     }
   },
 
-  "renders as a block element for PDF slides": {
+  "renders as an inline-block element for PDF slides": {
     slide: "slides.pdf#1",
     expects: {
       eval: el => window.getComputedStyle(window.slideEl).display,
-      result: "block"
+      result: "inline-block"
     }
   },
 
@@ -178,9 +178,9 @@ const tests = {
       eval: el => {
         const rootEl = window.slideEl.shadowRoot.querySelector("html");
         const styles = window.getComputedStyle(rootEl);
-        return `${styles.position}|${styles.overflow}|${styles.height}`;
+        return `${styles.position}|${styles.overflow}|${styles.width}|${styles.height}`;
       },
-      result: `relative|hidden|${300/(16/9)}px`
+      result: `relative|hidden|300px|${300/(16/9)}px`
     }
   },
 
@@ -190,9 +190,9 @@ const tests = {
       eval: el => {
         const rootEl = window.slideEl.shadowRoot.querySelector("div");
         const styles = window.getComputedStyle(rootEl);
-        return `${styles.position}|${styles.overflow}`;
+        return `${styles.position}|${styles.overflow}|${styles.width}`;
       },
-      result: "relative|hidden"
+      result: "relative|hidden|300px"
     }
   }
 };

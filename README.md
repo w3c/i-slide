@@ -14,18 +14,18 @@ This repository hosts a Web component that may be used to inline individual HTML
     <h1>A slideset</h1>
 
     <p>This is slide 1:</p>
-    <i-slide src="https://example.org/myslides.html#1"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#1"></i-slide></p>
     <p>Followed by slide 2:</p>
-    <i-slide src="https://example.org/myslides.html#2"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#2"></i-slide></p>
 
     <p>PDF slides work too:</p>
-    <i-slide src="https://example.org/myslides.pdf#page=1"></i-slide>
+    <p><i-slide src="https://example.org/myslides.pdf#page=1"></i-slide></p>
 
     <p>Fallback content can be specified:</p>
-    <i-slide src="https://example.org/notfound#4">[Slide 4 of my slide set]</i-slide>
+    <p><i-slide src="https://example.org/notfound#4">[Slide 4 of my slide set]</i-slide></p>
 
     <p>Content width can be set (300px by default):</p>
-    <i-slide src="https://example.org/myslides.html#5" width="800"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#5" width="800"></i-slide></p>
     <p>Note: the height is set automatically based on the slide's aspect ratio.</p>
 
     <!-- Web component must be loaded as a module -->
