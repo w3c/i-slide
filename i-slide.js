@@ -395,6 +395,15 @@ class ISlide extends HTMLElement {
   /**
    * Listen to attribute changes and render slide appropriately.
    * 
+   * The function may trigger asynchronous steps such as network I/O to fetch
+   * the slides. The function may be called multiple times while these steps
+   * run in the background, e.g. because a script changes the values of the
+   * attributes repeatedly for some reason. Latest attributes values in such a
+   * batch of calls are the ones that should be used.
+   *
+   * The "load" event will only be fired when a fetch takes place, and will
+   * be fired once at most per batch of calls.
+   *
    * Note the function gets called when attributes are initialized.
    */
   attributeChangedCallback(name, oldValue, newValue) {
@@ -404,6 +413,14 @@ class ISlide extends HTMLElement {
     const width = this.getAttribute('width');
     const type = this.getAttribute('type');
 
+    // "busyCounter" tracks the number of ongoing calls to that function that
+    // require a fetch operation. A fetch is needed when the source or the type
+    // of slides changes. Also, we need to wait for any pending fetch to end
+    // when the width changes to be sure that the render operation renders the
+    // right content. We currently do that in a non-optimized way by pretending
+    // that such a width update also needs a fetch operation (no fetch will
+    // actually be performed in practice since the "fetch" function just waits
+    // for the pending promise to be resolved in that case)
     if ((this.src !== src) || (this.type !== type) ||
         (this.width !== width && this.busyCounter > 0)) {
       this.src = src;
@@ -417,6 +434,8 @@ class ISlide extends HTMLElement {
       this.fetch().then(() => this.render()).then(() => {
         this.busyCounter--;
         if (this.busyCounter === 0) {
+          // Only reset the "aria-busy" attribute and only fire a "load" event
+          // when there are no other pending fetches
           this.setAttribute('aria-busy', false);
           this.loaded = true;
           this.dispatchEvent(new Event("load"));
