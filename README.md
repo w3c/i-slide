@@ -14,18 +14,18 @@ This repository hosts a Web component that may be used to inline individual HTML
     <h1>A slideset</h1>
 
     <p>This is slide 1:</p>
-    <i-slide src="https://example.org/myslides.html#1"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#1"></i-slide></p>
     <p>Followed by slide 2:</p>
-    <i-slide src="https://example.org/myslides.html#2"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#2"></i-slide></p>
 
     <p>PDF slides work too:</p>
-    <i-slide src="https://example.org/myslides.pdf#page=1"></i-slide>
+    <p><i-slide src="https://example.org/myslides.pdf#page=1"></i-slide></p>
 
     <p>Fallback content can be specified:</p>
-    <i-slide src="https://example.org/notfound#4">[Slide 4 of my slide set]</i-slide>
+    <p><i-slide src="https://example.org/notfound#4">[Slide 4 of my slide set]</i-slide></p>
 
     <p>Content width can be set (300px by default):</p>
-    <i-slide src="https://example.org/myslides.html#5" width="800"></i-slide>
+    <p><i-slide src="https://example.org/myslides.html#5" width="800"></i-slide></p>
     <p>Note: the height is set automatically based on the slide's aspect ratio.</p>
 
     <!-- Web component must be loaded as a module -->
@@ -33,6 +33,8 @@ This repository hosts a Web component that may be used to inline individual HTML
   </body>
 </html>
 ```
+
+See it in action in the [demo page](https://w3c.github.io/i-slide/demo.html).
 
 **Important:** If the slide set is served from an origin different from the one where the component is used, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) must be enabled for the slide set, meaning that the HTTP server that hosts the slide set needs to return an `Access-Control-Allow-Origin: *` HTTP header. This may already be the case (for instance, CORS is already enabled for all pages under `*.github.io`).
 

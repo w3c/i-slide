@@ -177,7 +177,7 @@ class ISlide extends HTMLElement {
       }
     }
     catch (err) {
-      cache[docUrl] = { type: 'error', msg: `Could not fetch slide deck ${docUrl}: ${err.message}`, err };
+      cache[docUrl] = { type: 'error', message: `Could not fetch slide deck ${docUrl}: ${err.message}`, err };
     }
     finally {
       pendingResolve();
@@ -226,10 +226,37 @@ class ISlide extends HTMLElement {
 
     const width = parseInt(this.getAttribute('width') ?? 300, 10);
 
+    // Retrieve styles to be applied to the custom element to create something
+    // as close as possible to a "replaced element" in CSS:
+    // - custom element is an inline-block element
+    // - width and height are that of the inner contents
+    // - also, "hidden" attribute needs to be accounted for explicitly
+    function getHostStyles(height) {
+      const heightProp = height ? `
+        height: ${height}px;
+      ` : '';
+
+      return `
+        :host {
+          display: inline-block;
+          width: ${width}px;
+          ${heightProp}
+        }
+        :host([hidden]) {
+          display: none;
+        }
+      `;
+    }
+
+    // Styles for the custom element itself
+    const hostStyleEl = document.createElement('style');
+    hostStyleEl.textContent = getHostStyles();
+
     try {
       if (cacheEntry.type === 'error') {
-        throw new Error(cacheEntry.msg);
+        throw new Error(cacheEntry.message);
       }
+
       if (cacheEntry.type === 'pdf') {
         const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
         const eventBus = new pdfjsViewer.EventBus();
@@ -246,6 +273,7 @@ class ISlide extends HTMLElement {
         const divEl = document.createElement('div');
         // Needed to properly position the annotation layer (e.g. links)
         divEl.style.position = "relative";
+        divEl.style.overflow = "hidden";
 
         // Make slides fit the defined width of the component
         // (Note the need to convert from
@@ -264,14 +292,12 @@ class ISlide extends HTMLElement {
         // Associates the actual page with the view, and drawing it
         pdfPageView.setPdfPage(page);
 
-        this.shadowRoot.append(styleEl, divEl);
+        this.shadowRoot.append(hostStyleEl, styleEl, divEl);
 
         return pdfPageView.draw();
       }
       else {
         const { type, doc } = cache[docUrl];
-
-
         const headEl = doc.querySelector('head').cloneNode(true);
         const bodyEl = doc.querySelector('body').cloneNode();
         const slideNumber = parseInt(slideId, 10);
@@ -301,23 +327,26 @@ class ISlide extends HTMLElement {
           l.addEventListener("error", resolve);
           styleLoadedPromises.push(p);
         });
-        // Attach HTML document to shadow root
-        const htmlEl = document.createElement('html');
 
         // before we can properly resize the slide, we start with defined width
         // and apply the default aspect ratio to get the height
         let height = width / defaultAspectRatio;
 
+        // Attach HTML document to shadow root, making sure that the content
+        // cannot overflow the <i-slide> element (the height of the <html>
+        // element must be specified because <body> is absoluted positioned in
+        // Shower.js, so height of <html> would be 0 otherwise)
+        const htmlEl = document.createElement('html');
+        htmlEl.style.position = 'relative';
+        htmlEl.style.overflow = 'hidden';
+        htmlEl.style.height = `${height}px`;
+
         bodyEl.style.transformOrigin = '0 0';
         // Set the custom element's height
         // (cannot let CSS compute the height because slides are absolutely
         // positioned most of the time...)
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-        :host { display: block; height: ${height}px;}
-        :host([hidden]) { display: none; }
-      `;
-        headEl.appendChild(styleEl);
+        hostStyleEl.textContent = getHostStyles(height);
+        headEl.appendChild(hostStyleEl);
 
         htmlEl.appendChild(headEl);
         htmlEl.appendChild(bodyEl);
@@ -325,10 +354,8 @@ class ISlide extends HTMLElement {
         function scaleContent() {
           const scale = width / cacheEntry.width;
           height = cacheEntry.height * scale;
-          styleEl.textContent = `
-        :host { display: block; height: ${height}px; }
-        :host([hidden]) { display: none; }
-      `;
+          htmlEl.style.height = `${height}px`;
+          hostStyleEl.textContent = getHostStyles(height);
           bodyEl.style.transform = `scale(${scale})`;
         }
 
@@ -351,16 +378,11 @@ class ISlide extends HTMLElement {
 
       }
     } catch (err) {
-      console.error(err);
+      console.error(err.toString(), err);
       this.shadowRoot.innerHTML = "";
       const doc = document.createElement('div');
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
-      const styleEl = document.createElement('style');
-      styleEl.textContent = `
-        :host { display: block; }
-        :host([hidden]) { display: none; }
-      `;
-      this.shadowRoot.append(styleEl, doc);
+      this.shadowRoot.append(hostStyleEl, doc);
     }
   }
 
