@@ -204,10 +204,7 @@ const tests = {
         let during;
         let resolve;
 
-        // NB: cannot use `window.slideEl.src = xx` for now because that is not
-        // a proper setter and won't trigger the fetch
-        window.slideEl.setAttribute("src", "shower.html#1");
-
+        window.slideEl.src = "test/resources/shower.html#1";
         window.slideEl.addEventListener("load", () => {
           const after = window.slideEl.getAttribute("aria-busy") ?? "false";
           resolve(`aria-busy before:${before} during:${during} after:${after}`);

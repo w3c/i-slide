@@ -4,6 +4,7 @@
 
 
 const defaultAspectRatio = 16/9;
+const defaultWidth = 300;
 
 /**
  * Local cache for holding fetched and parsed slide decks
@@ -54,29 +55,113 @@ const PDFScriptsLoaded = new Promise((resolve, reject) => {
  */
 class ISlide extends HTMLElement {
   /**
+   * A fetch-and-render cycle has been scheduled to run during next tick
+   */
+  #renderCyclePlanned = false;
+
+  /**
+   * ID of the current fetch-and-render cycle (increment with each cycle)
+   */
+  #renderCycleID = 0;
+
+  /**
+   * Promise always set, resolved when the #render function may run.
+   */
+  #renderPossible = Promise.resolve();
+
+
+  /**
    * Reflects the "src" attribute (slide source)
    */
-  src;
+  #src = this.baseURI;
+  get src() {
+    return this.#src;
+  }
+  set src(value) {
+    const oldValue = this.#src;
+    if (value) {
+      try {
+        this.#src = new URL(value, this.baseURI).href;
+      }
+      catch {
+        value = '';
+        this.#src = this.baseURI;
+      }
+    }
+    else {
+      this.#src = this.baseURI;
+    }
+
+    // Propagate the value to the HTML if change came from JS
+    if (this.getAttribute('src') !== value) {
+      this.setAttribute('src', value);
+    }
+
+    // Trigger a fetch-and-render cycle on next tick if value changed, unless
+    // that's already planned
+    if ((this.#src !== oldValue) && !this.#renderCyclePlanned) {
+      this.#renderCyclePlanned = true;
+      setTimeout(_ => this.#fetchAndRender(), 0);
+    }
+  }
 
 
   /**
    * Reflects the "width" attribute (width of the custom element)
    */
-  width;
+  #width = defaultWidth;
+  get width() {
+    return this.#width;
+  }
+  set width(value) {
+    value = '' + value;
+    const oldValue = this.#width;
+    try {
+      this.#width = parseInt(value, 10);
+    }
+    catch {
+      value = '';
+      this.#width = defaultWidth;
+    }
+
+    // Propagate the value to the HTML if change came from JS
+    if (this.getAttribute('width') !== value) {
+      this.setAttribute('src', value);
+    }
+
+    // Changing the width triggers a render to rescale the content, unless
+    // a render is already planned, or unless a fetch is needed (in other words
+    // unless no fetch-and-render cycle has started yet)
+    if ((this.#width !== oldValue) && !this.#renderCyclePlanned &&
+        (this.#renderCycleID > 0)) {
+      this.#render();
+    }
+  }
 
 
   /**
    * Reflects the "type" attribute (explicit content-type of the slide)
    */
-  type;
+  #type;
+  get type() {
+    return this.#type;
+  }
+  set type(value) {
+    const oldValue = this.#type;
+    this.#type = value;
 
+    // Propagate the value to the HTML if change came from JS
+    if (this.getAttribute('type') !== value) {
+      this.setAttribute('type', value);
+    }
 
-  /**
-   * Busy counter to handle rapid changes to "src" and not reset "aria-busy"
-   * too fast
-   */
-  busyCounter = 0;
-
+    // Trigger a fetch-and-render cycle on next tick if value changed, unless
+    // that's already planned
+    if ((this.#src !== oldValue) && !this.#renderCyclePlanned) {
+      this.#renderCyclePlanned = true;
+      setTimeout(_ => this.#fetchAndRender(), 0);
+    }
+  }
 
   loaded;
 
@@ -102,14 +187,51 @@ class ISlide extends HTMLElement {
 
 
   /**
-   * Retrieve the slide deck at the given src URL and populate the cache.
+   * Run a new fetch-and-render cycle
    */
-  async fetch() {
-    if (!this.src) {
+  async #fetchAndRender() {
+    const cycleId = ++this.#renderCycleID;
+
+    // Cycle is no longer pending, we're handling it
+    this.#renderCyclePlanned = null;
+
+    // Tell assistive technology that we're starting a cycle that will update
+    // the contents of the shadow tree
+    this.setAttribute('aria-busy', true);
+
+    // Load slides
+    await this.#fetch();
+
+    if (this.#renderCyclePlanned || (this.#renderCycleID !== cycleId)) {
+      // Meanwhile, in Veracruz, someone changed an attribute, and change means
+      // that another full fetch-and-render cycle needs to run, or that a cycle
+      // has already started to run. No need to finish this cycle.
       return;
     }
 
-    const docUrl = this.src.split('#')[0];
+    // Render the requested slide
+    await this.#render();
+
+    if (this.#renderCyclePlanned || (this.#renderCycleID !== cycleId)) {
+      // Meanwhile, in Veracruz, see above. We should neither reset the
+      // "wai-aria" attribute nor trigger the "load" event since another cycle
+      // is running or will run.
+      return;
+    }
+
+    // Done with fetch-and-render cycle and no further cycle needed, tell the
+    // world about it.
+    this.setAttribute('aria-busy', false);
+    this.loaded = true;
+    this.dispatchEvent(new Event('load'));
+  }
+
+
+  /**
+   * Retrieve the slide deck at the given src URL and populate the cache.
+   */
+  async #fetch() {
+    const docUrl = this.#src.split('#')[0];
 
     // Retrieve slide deck from cache when possible
     if (pendingFetch[docUrl]) {
@@ -127,7 +249,7 @@ class ISlide extends HTMLElement {
     });
 
     if (this.type === 'application/pdf') {
-      this.loadPDFScripts();
+      this.#loadPDFScripts();
     }
 
     try {
@@ -145,7 +267,7 @@ class ISlide extends HTMLElement {
       if (effectiveMimeType === 'application/pdf' ||
           // taking into account poorly configured servers
           (effectiveMimeType === 'application/octet' && docUrl.match(/\.pdf$/))) {
-        this.loadPDFScripts();
+        this.#loadPDFScripts();
       }
 
       const isPDF = (this.type === 'application/pdf') || (effectiveMimeType === 'application/pdf');
@@ -193,8 +315,8 @@ class ISlide extends HTMLElement {
   // We need the slide to be rendered with its styles
   // to measure its pixel dimensions
   // We do that only once per slideset to minimize flash of resizing
-  async calculateHTMLDimensions(slideEl, stylesLoaded) {
-    const docUrl = this.src.split('#')[0];
+  async #calculateHTMLDimensions(slideEl, stylesLoaded) {
+    const docUrl = this.#src.split('#')[0];
     const cacheEntry = cache[docUrl];
 
     // Retrieve slide deck's width from cache when possible
@@ -220,16 +342,20 @@ class ISlide extends HTMLElement {
   /**
    * Render the requested slide
    */
-  async render() {
-    this.shadowRoot.replaceChildren();
-    if (!this.src) {
-      return;
-    }
+  async #render() {
+    // Wait until render is possible again
+    await this.#renderPossible;
 
-    const [docUrl, slideId] = this.src.split('#');
+    // Make sure that no other render operation can run at the same time
+    let resolve;
+    this.#renderPossible = new Promise(res => resolve = res);
+
+    this.shadowRoot.replaceChildren();
+
+    const [docUrl, slideId] = this.#src.split('#');
     const cacheEntry = cache[docUrl];
 
-    const width = parseInt(this.getAttribute('width') ?? 300, 10);
+    const width = this.#width;
 
     // Retrieve styles to be applied to the custom element to create something
     // as close as possible to a "replaced element" in CSS:
@@ -373,7 +499,7 @@ class ISlide extends HTMLElement {
           slideEl.style.marginLeft = "-2000px";
           this.shadowRoot.append(htmlEl);
           // Once we know the real dimensions of the slide…
-          await this.calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
+          await this.#calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
           // we can rescale it as appropriate
           scaleContent();
           // and move it back in the flow
@@ -389,63 +515,32 @@ class ISlide extends HTMLElement {
       doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
       this.shadowRoot.append(hostStyleEl, doc);
     }
+    finally {
+      // Release the #renderPossible lock
+      resolve();
+    }
   }
 
 
   /**
    * Listen to attribute changes and render slide appropriately.
    * 
-   * The function may trigger asynchronous steps such as network I/O to fetch
-   * the slides. The function may be called multiple times while these steps
-   * run in the background, e.g. because a script changes the values of the
-   * attributes repeatedly for some reason. Latest attributes values in such a
-   * batch of calls are the ones that should be used.
-   *
-   * The "load" event will only be fired when a fetch takes place, and will
-   * be fired once at most per batch of calls.
+   * Calling the property setters may may trigger asynchronous steps such as
+   * network I/O to fetch the slides.
    *
    * Note the function gets called when attributes are initialized.
    */
   attributeChangedCallback(name, oldValue, newValue) {
-    const src = this.getAttribute('src') ?
-      new URL(this.getAttribute('src'), document.location.href).href :
-      null;
-    const width = this.getAttribute('width');
-    const type = this.getAttribute('type');
-
-    // "busyCounter" tracks the number of ongoing calls to that function that
-    // require a fetch operation. A fetch is needed when the source or the type
-    // of slides changes. Also, we need to wait for any pending fetch to end
-    // when the width changes to be sure that the render operation renders the
-    // right content. We currently do that in a non-optimized way by pretending
-    // that such a width update also needs a fetch operation (no fetch will
-    // actually be performed in practice since the "fetch" function just waits
-    // for the pending promise to be resolved in that case)
-    if ((this.src !== src) || (this.type !== type) ||
-        (this.width !== width && this.busyCounter > 0)) {
-      this.src = src;
-      this.type = type;
-      this.width = width;
-
-      // Tell assistive technologies that the element is going to be modified
-      this.busyCounter++;
-      this.setAttribute('aria-busy', true);
-
-      this.fetch().then(() => this.render()).then(() => {
-        this.busyCounter--;
-        if (this.busyCounter === 0) {
-          // Only reset the "aria-busy" attribute and only fire a "load" event
-          // when there are no other pending fetches
-          this.setAttribute('aria-busy', false);
-          this.loaded = true;
-          this.dispatchEvent(new Event("load"));
-        }
-      });
-    }
-    else if (this.width !== width) {
-      // Width attribute changed and there are no pending fetches
-      this.width = width;
-      this.render();
+    switch (name) {
+      case 'src':
+        this.src = newValue;
+        break;
+      case 'type':
+        this.type = newValue;
+        break;
+      case 'width':
+        this.width = newValue;
+        break;
     }
   }
 
@@ -453,7 +548,7 @@ class ISlide extends HTMLElement {
   /**
    * Load PDF.js libraries
    */
-  async loadPDFScripts() {
+  async #loadPDFScripts() {
     if (PDFScriptsHandled) {
       return;
     }
