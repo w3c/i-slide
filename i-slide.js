@@ -418,9 +418,9 @@ class ISlide extends HTMLElement {
         this.busyCounter--;
         if (this.busyCounter === 0) {
           this.setAttribute('aria-busy', false);
+          this.loaded = true;
+          this.dispatchEvent(new Event("load"));
         }
-        this.loaded = true;
-        this.dispatchEvent(new Event("load"));
       });
     }
     else if (this.width !== width) {
