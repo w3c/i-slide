@@ -71,6 +71,13 @@ class ISlide extends HTMLElement {
   type;
 
 
+  /**
+   * Busy counter to handle rapid changes to "src" and not reset "aria-busy"
+   * too fast
+   */
+  busyCounter = 0;
+
+
   loaded;
 
   /**
@@ -96,8 +103,6 @@ class ISlide extends HTMLElement {
 
   /**
    * Retrieve the slide deck at the given src URL and populate the cache.
-   * 
-   * TODO: Set aria-busy to true, reset in render
    */
   async fetch() {
     if (!this.src) {
@@ -399,16 +404,27 @@ class ISlide extends HTMLElement {
     const width = this.getAttribute('width');
     const type = this.getAttribute('type');
 
-    if ((this.src !== src) || (this.type !== type)) {
+    if ((this.src !== src) || (this.type !== type) ||
+        (this.width !== width && this.busyCounter > 0)) {
       this.src = src;
       this.type = type;
       this.width = width;
+
+      // Tell assistive technologies that the element is going to be modified
+      this.busyCounter++;
+      this.setAttribute('aria-busy', true);
+
       this.fetch().then(() => this.render()).then(() => {
+        this.busyCounter--;
+        if (this.busyCounter === 0) {
+          this.setAttribute('aria-busy', false);
+        }
         this.loaded = true;
         this.dispatchEvent(new Event("load"));
       });
     }
     else if (this.width !== width) {
+      // Width attribute changed and there are no pending fetches
       this.width = width;
       this.render();
     }

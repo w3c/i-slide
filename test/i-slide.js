@@ -159,7 +159,7 @@ const tests = {
   "renders as an inline-block element for HTML slides": {
     slide: "shower.html#1",
     expects: {
-      eval: el => window.getComputedStyle(window.slideEl).display,
+      eval: _ => window.getComputedStyle(window.slideEl).display,
       result: "inline-block"
     }
   },
@@ -167,7 +167,7 @@ const tests = {
   "renders as an inline-block element for PDF slides": {
     slide: "slides.pdf#1",
     expects: {
-      eval: el => window.getComputedStyle(window.slideEl).display,
+      eval: _ => window.getComputedStyle(window.slideEl).display,
       result: "inline-block"
     }
   },
@@ -175,7 +175,7 @@ const tests = {
   "sets the styles of the root element properly for HTML slides": {
     slide: "shower.html#1",
     expects: {
-      eval: el => {
+      eval: _ => {
         const rootEl = window.slideEl.shadowRoot.querySelector("html");
         const styles = window.getComputedStyle(rootEl);
         return `${styles.position}|${styles.overflow}|${styles.width}|${styles.height}`;
@@ -187,12 +187,41 @@ const tests = {
   "sets the styles of the root element properly for PDF slides": {
     slide: "slides.pdf#1",
     expects: {
-      eval: el => {
+      eval: _ => {
         const rootEl = window.slideEl.shadowRoot.querySelector("div");
         const styles = window.getComputedStyle(rootEl);
         return `${styles.position}|${styles.overflow}|${styles.width}`;
       },
       result: "relative|hidden|300px"
+    }
+  },
+
+  "sets aria-busy while loading a slide": {
+    slide: "",
+    expects: {
+      eval: async _ => {
+        const before = window.slideEl.getAttribute("aria-busy") ?? "false";
+        let during;
+        let resolve;
+
+        // NB: cannot use `window.slideEl.src = xx` for now because that is not
+        // a proper setter and won't trigger the fetch
+        window.slideEl.setAttribute("src", "shower.html#1");
+
+        window.slideEl.addEventListener("load", () => {
+          const after = window.slideEl.getAttribute("aria-busy") ?? "false";
+          resolve(`aria-busy before:${before} during:${during} after:${after}`);
+        });
+
+        // setImmediate would be preferable so as not to be clamped to 4ms and
+        // miss the "aria-busy" switch, but not supported in Chromium
+        window.setTimeout(() => {
+          during = window.slideEl.getAttribute("aria-busy") ?? "false";
+        }, 0);
+
+        return new Promise(res => resolve = res);
+      },
+      result: "aria-busy before:false during:true after:false"
     }
   }
 };
@@ -268,7 +297,6 @@ describe("Test loading slides", function() {
   });
 
   for (let [title, slideset] of Object.entries(tests)) {
-    //if (title !== "renders as a block element in HTML slides") continue;
     slideset = Array.isArray(slideset) ? slideset : [slideset];
 
     it(title, async () => {
@@ -279,7 +307,7 @@ describe("Test loading slides", function() {
           const slide = (typeof s.slide === "string") ? { url: s.slide } : s.slide;
           return `<i-slide
             src="${new URL(slide.url, baseUrl).href}"
-            ${slide.width ? `width=${slide.width}`: ""}}>
+            ${slide.width ? `width=${slide.width}`: ""}>
               ${slide.innerHTML ?? ""}
             </i-slide>`;
         }).join("\n");
