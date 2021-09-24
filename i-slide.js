@@ -2,9 +2,27 @@
  * i-slide: Web component to display inline slides
  */
 
+/**
+ * Logging function in DEBUG mode
+ */
+function log(...msg) {
+  if (typeof DEBUG !== 'undefined') {
+    console.log(...msg);
+  }
+}
 
+
+/**
+ * Default aspect ratio for slides
+ */
 const defaultAspectRatio = 16/9;
+
+
+/**
+ * Default width for the element (same as for <img> and <iframe>)
+ */
 const defaultWidth = 300;
+
 
 /**
  * Local cache for holding fetched and parsed slide decks
@@ -66,7 +84,8 @@ class ISlide extends HTMLElement {
   #renderCycleID = 0;
 
   /**
-   * Promise always set, resolved when the #render function may run.
+   * Promise always set, resolved when the #render function may run
+   * (used to prevent re-entrancy)
    */
   #renderPossible = Promise.resolve();
 
@@ -130,12 +149,45 @@ class ISlide extends HTMLElement {
       this.setAttribute('width', value);
     }
 
-    // Changing the width triggers a render to rescale the content, unless
+    // Changing the width should trigger a rescale of the content, unless
     // a render is already planned, or unless a fetch is needed (in other words
     // unless no fetch-and-render cycle has started yet)
     if ((this.#width !== oldValue) && !this.#renderCyclePlanned &&
         (this.#renderCycleID > 0)) {
-      this.#render();
+      this.#scaleContent({ width: this.#width });
+    }
+  }
+
+
+  /**
+   * Reflects the "height" attribute (height of the custom element)
+   */
+  #height = null;
+  get height() {
+    return this.#height;
+  }
+  set height(value) {
+    value = '' + value;
+    const oldValue = this.#height;
+    try {
+      this.#height = parseInt(value, 10);
+    }
+    catch {
+      value = '';
+      this.#height = null;
+    }
+
+    // Propagate the value to the HTML if change came from JS
+    if (this.getAttribute('height') !== value) {
+      this.setAttribute('height', value);
+    }
+
+    // Changing the height should trigger a rescale of the content, unless
+    // a render is already planned, or unless a fetch is needed (in other words
+    // unless no fetch-and-render cycle has started yet)
+    if ((this.#height !== oldValue) && !this.#renderCyclePlanned &&
+        (this.#renderCycleID > 0)) {
+      this.#scaleContent({ height: this.#height });
     }
   }
 
@@ -169,12 +221,55 @@ class ISlide extends HTMLElement {
     }
   }
 
+  /**
+   * Intrinsic slide dimensions (before any scaling gets applied)
+   */
+  #intrinsicWidth;
+  #intrinsicHeight;
+
+  /**
+   * Resize dimensions that need to be processed once intrinsic dimensions
+   * of the slide are known
+   */
+  #pendingWidth;
+  #pendingHeight;
+
+  /**
+   * Last scale that was applied to the slide and last target dimensions
+   * (the resize observer tends to fire more than once with the same dimensions,
+   * these properties are used to avoid useless re-scaling operations)
+   */
+  #slideScale;
+  #slideTargetWidth;
+  #slideTargetHeight;
+
+  /**
+   * Current slide number (result of parsing the fragment part of the src URL)
+   */
+  #slideNumber;
+
+  /**
+   * Effective root element that contains the slide
+   * (used to apply rescaling)
+   */
+  #slideEl;
+
+  /**
+   * Link to the <style> element that contains :host styles
+   */
+  #hostStyleEl;
+
+  /**
+   * Reference to the current PDF page if current slide is from a PDF document
+   */
+  #pdfPage;
+
   loaded;
 
   /**
    * Observe changes on "src" and "width" attributes.
    */
-  static get observedAttributes() { return ['src', 'width', 'type']; }
+  static get observedAttributes() { return ['src', 'width', 'height', 'type']; }
 
 
   /**
@@ -189,6 +284,20 @@ class ISlide extends HTMLElement {
     super();
     this.loaded = false;
     this.attachShadow({ mode: 'open' });
+
+    // Scale content when element gets resized, unless a render is already
+    // planned, or unless a fetch is needed (in other words unless no
+    // fetch-and-render cycle has started yet)
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!this.#renderCyclePlanned && (this.#renderCycleID > 0)) {
+        this.#scaleContent({
+          width: entries[0].contentRect.width,
+          height: entries[0].contentRect.height
+        });
+      }
+    });
+
+    resizeObserver.observe(this);
   }
 
 
@@ -238,6 +347,7 @@ class ISlide extends HTMLElement {
    */
   async #fetch() {
     const docUrl = this.#src.split('#')[0];
+    log('fetch', docUrl, this);
 
     // Retrieve slide deck from cache when possible
     if (pendingFetch[docUrl]) {
@@ -326,6 +436,9 @@ class ISlide extends HTMLElement {
       await pendingDimensions[docUrl];
     }
     if (cacheEntry.width) {
+      // Record the dimensions
+      this.#intrinsicWidth = cacheEntry.width;
+      this.#intrinsicHeight = cacheEntry.height;
       return;
     }
 
@@ -334,10 +447,36 @@ class ISlide extends HTMLElement {
     pendingDimensions[docUrl] = new Promise(res => pendingResolve = res);
 
     await stylesLoaded;
+
+    // Record the dimensions for other class instances that reference the
+    // same slide deck
     cacheEntry.width = slideEl.clientWidth;
     cacheEntry.height = slideEl.clientHeight;
+
+    // Record the dimensions for this particular instance
+    this.#intrinsicWidth = cacheEntry.width;
+    this.#intrinsicHeight = cacheEntry.height;
+
     delete pendingDimensions[docUrl];
     pendingResolve();
+  }
+
+  /**
+   * Forget everything known about the current slide
+   */
+  #resetSlide() {
+    this.#slideEl = null;
+    this.#slideNumber = null;
+    this.#slideScale = null;
+    this.#slideTargetWidth = null;
+    this.#slideTargetHeight = null;
+    this.#hostStyleEl = null;
+    this.#hostStyleEl = null;
+    this.#pdfPage = null;
+    this.#intrinsicWidth = null;
+    this.#intrinsicHeight = null;
+    this.#pendingWidth = null;
+    this.#pendingHeight = null;
   }
 
 
@@ -347,43 +486,41 @@ class ISlide extends HTMLElement {
   async #render() {
     // Wait until render is possible again
     await this.#renderPossible;
+    log('render', this);
 
     // Make sure that no other render operation can run at the same time
     let resolve;
     this.#renderPossible = new Promise(res => resolve = res);
 
+    this.#resetSlide();
     this.shadowRoot.replaceChildren();
 
     const [docUrl, slideId] = this.#src.split('#');
     const cacheEntry = cache[docUrl];
 
+    // Initial width is explicitly set
     const width = this.#width;
 
-    // Retrieve styles to be applied to the custom element to create something
-    // as close as possible to a "replaced element" in CSS:
-    // - custom element is an inline-block element
-    // - width and height are that of the inner contents
-    // - also, "hidden" attribute needs to be accounted for explicitly
-    function getHostStyles(height) {
-      const heightProp = height ? `
-        height: ${height}px;
-      ` : '';
+    // Initial height may be explicitly set. If not, we'll set it from the
+    // width based on the default aspect ratio, unless the slide ratio is
+    // already known.
+    let height = this.#height ||
+      (cacheEntry.width && cacheEntry.height ?
+        cacheEntry.height * width / cacheEntry.width :
+        width / defaultAspectRatio);
 
-      return `
-        :host {
-          display: inline-block;
-          width: ${width}px;
-          ${heightProp}
-        }
-        :host([hidden]) {
-          display: none;
-        }
-      `;
-    }
+    // Note external CSS properties may set or constrain the dimensions of the
+    // custom element, but we cannot easily determine whether that is the case
+    // here (as opposed to the current box dimensions being the result of the
+    // dimensions of a slide that may already have been rendered). As we're
+    // going to try to impose the size of the custom element through ":host"
+    // properties, these additional constraints should trigger a "resize" that
+    // will be handled by the ResizeObserver instance, which in turn will resize
+    // the slide to the right scale.
 
     // Styles for the custom element itself
-    const hostStyleEl = document.createElement('style');
-    hostStyleEl.textContent = getHostStyles();
+    this.#hostStyleEl = document.createElement('style');
+    this.#hostStyleEl.textContent = this.#getHostStyles(width, height);
 
     try {
       if (cacheEntry.type === 'error') {
@@ -391,43 +528,30 @@ class ISlide extends HTMLElement {
       }
 
       if (cacheEntry.type === 'pdf') {
-        const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj]
-        const eventBus = new pdfjsViewer.EventBus();
         const m = slideId.match(/^(page=)?(\d+)$/);
         if (!m) throw new Error(`Unrecognized PDF fragment ${slideId}`);
-        const pageNumber = parseInt(m[2], 10);
-        const pdf = cacheEntry.pdf;
-        const page = await pdf.getPage(pageNumber);
+        this.#slideNumber = parseInt(m[2], 10);
 
         const styleEl = document.createElement('link');
         styleEl.rel = 'stylesheet';
         styleEl.href = 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.css';
 
-        const divEl = document.createElement('div');
+        this.#slideEl = document.createElement('div');
         // Needed to properly position the annotation layer (e.g. links)
-        divEl.style.position = "relative";
-        divEl.style.overflow = "hidden";
+        this.#slideEl.style.position = "relative";
+        this.#slideEl.style.overflow = "hidden";
 
-        // Make slides fit the defined width of the component
-        // (Note the need to convert from
-        // CSS points to CSS pixels for page dimensions)
-        const scale = (width / page.view[2]) * 72/96;
-        const viewport = page.getViewport({ scale });
-        var pdfPageView = new pdfjsViewer.PDFPageView({
-          container: divEl,
-          id: pageNumber,
-          scale: scale,
-          defaultViewport: viewport,
-          eventBus: eventBus,
-          textLayerFactory: new pdfjsViewer.DefaultTextLayerFactory(),
-          annotationLayerFactory: new pdfjsViewer.DefaultAnnotationLayerFactory()
-        });
-        // Associates the actual page with the view, and drawing it
-        pdfPageView.setPdfPage(page);
+        this.shadowRoot.append(this.#hostStyleEl, styleEl, this.#slideEl);
 
-        this.shadowRoot.append(hostStyleEl, styleEl, divEl);
+        const pdf = cacheEntry.pdf;
+        this.#pdfPage = await pdf.getPage(this.#slideNumber);
 
-        return pdfPageView.draw();
+        // Save intrinsic dimensions of the current slide
+        this.#intrinsicWidth = this.#pdfPage.view[2];
+        this.#intrinsicHeight = this.#pdfPage.view[3];
+
+        // Note that the PDF slide gets rendered when it is scaled up/down to
+        // the right dimensions in #scaleContent
       }
       else {
         const { type, doc } = cache[docUrl];
@@ -441,6 +565,7 @@ class ISlide extends HTMLElement {
         bodyEl.style.top = 'inherit';
         bodyEl.style.left = 'inherit';
         bodyEl.style.margin = 'inherit';
+        bodyEl.style.transformOrigin = '0 0';
 
         //  Works for Shower and b6
         slideEl.classList.add('active');
@@ -461,61 +586,50 @@ class ISlide extends HTMLElement {
           styleLoadedPromises.push(p);
         });
 
-        // before we can properly resize the slide, we start with defined width
-        // and apply the default aspect ratio to get the height
-        let height = width / defaultAspectRatio;
-
         // Attach HTML document to shadow root, making sure that the content
         // cannot overflow the <i-slide> element (the height of the <html>
         // element must be specified because <body> is absoluted positioned in
         // Shower.js, so height of <html> would be 0 otherwise)
-        const htmlEl = document.createElement('html');
-        htmlEl.style.position = 'relative';
-        htmlEl.style.overflow = 'hidden';
-        htmlEl.style.height = `${height}px`;
+        this.#slideEl = document.createElement('html');
+        this.#slideEl.style.position = 'relative';
+        this.#slideEl.style.overflow = 'hidden';
+        this.#slideEl.style.height = `${height}px`;
+        headEl.appendChild(this.#hostStyleEl);
 
-        bodyEl.style.transformOrigin = '0 0';
-        // Set the custom element's height
-        // (cannot let CSS compute the height because slides are absolutely
-        // positioned most of the time...)
-        hostStyleEl.textContent = getHostStyles(height);
-        headEl.appendChild(hostStyleEl);
-
-        htmlEl.appendChild(headEl);
-        htmlEl.appendChild(bodyEl);
-
-        function scaleContent() {
-          const scale = width / cacheEntry.width;
-          height = cacheEntry.height * scale;
-          htmlEl.style.height = `${height}px`;
-          hostStyleEl.textContent = getHostStyles(height);
-          bodyEl.style.transform = `scale(${scale})`;
+        if (!cacheEntry.width) {
+          // Nothing known about intrinsic slide dimensions for now,
+          // hide the slide on the left to avoid showing bogusly scaled content
+          slideEl.style.marginLeft = "-2000px";
         }
+
+        this.#slideEl.appendChild(headEl);
+        this.#slideEl.appendChild(bodyEl);
+        this.shadowRoot.append(this.#slideEl);
 
         if (cacheEntry.width) {
-          scaleContent();
-          this.shadowRoot.append(htmlEl);
-        } else {
-          // we hide the slide on the left
-          // to avoid showing bogusly scaled content
-          slideEl.style.marginLeft = "-2000px";
-          this.shadowRoot.append(htmlEl);
-          // Once we know the real dimensions of the slide…
-          await this.#calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
-          // we can rescale it as appropriate
-          scaleContent();
-          // and move it back in the flow
-          slideEl.style.marginLeft = "inherit";
+          this.#intrinsicWidth = cacheEntry.width;
+          this.#intrinsicHeight = cacheEntry.height;
         }
+        else {
+          // Wait until we get the dimensions of the slide
+          // and move slide element back in the flow
+          await this.#calculateHTMLDimensions(slideEl, Promise.all(styleLoadedPromises));
+          slideEl.style.marginLeft = "inherit";
 
-
+          // Adjust height now that we know the intrinsic dimensions of the
+          // slide
+          height = cacheEntry.height * width / cacheEntry.width;
+        }
       }
+
+      // Render and rescale content accordingly
+      await this.#scaleContent();
     } catch (err) {
       console.error(err.toString(), err);
       this.shadowRoot.innerHTML = "";
-      const doc = document.createElement('div');
-      doc.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
-      this.shadowRoot.append(hostStyleEl, doc);
+      this.#slideEl = document.createElement('div');
+      this.#slideEl.innerHTML = this.innerHTML.trim() || `<a href="${this.src}">${this.src}</a>`;
+      this.shadowRoot.append(this.#hostStyleEl, this.#slideEl);
     }
     finally {
       // Release the #renderPossible lock
@@ -581,6 +695,147 @@ class ISlide extends HTMLElement {
     window[PDFScripts.pdfjsLib.obj].GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.9.359/build/pdf.worker.js';
 
     resolvePDFScriptsPromise();
+  }
+
+  /**
+   * Retrieve styles to be applied to the custom element to create something
+   * that is as close as possible to a "replaced element" in CSS:
+   * - custom element is an inline-block element
+   * - width is imposed (300px by default)
+   * - height is determined based on the intrinsic slide aspect ratio, or
+   * imposed (initially to avoid reflows, or explicitly through CSS properties)
+   * - also, "hidden" attribute needs to be accounted for explicitly
+   */
+  #getHostStyles(width, height) {
+    const heightProp = height ? `
+      height: ${height === 'auto' ? 'auto' : height + 'px'};
+    ` : '';
+
+    return `
+      :host {
+        display: inline-block;
+        width: ${width === 'auto' ? 'auto': width + 'px'};
+        ${heightProp}
+        overflow: hidden;
+      }
+      :host([hidden]) {
+        display: none;
+      }
+    `;
+  }
+
+  /**
+   * Scale the intrinsic content to fit the requested box
+   *
+   * TODO: Add support for "object-fit" and "object-position" properties, to be
+   * passed as function parameters. Currently, the function assumes that the
+   * following directives always apply:
+   *   object-fit: contain (proper default should rather be "fill")
+   *   object-position: top left (proper default should rather be "50% 50%")
+   */
+  async #scaleContent(box) {
+    box = box || {};
+    const logPrefix = `scaleContent(${box.width} x ${box.height})`
+
+    // Function may have been called through the resize observer before the
+    // intrinsic dimensions of the slide are known. In this case, we need to
+    // keep these dimensions in mind and apply them once intrinsic dimensions
+    // are known and that function gets called again without arguments (which
+    // is exactly what #render() does)
+    if (!this.#intrinsicWidth || !this.#intrinsicHeight) {
+      this.#pendingWidth = box.width;
+      this.#pendingHeight = box.height;
+      log(logPrefix, 'mark as pending');
+      return;
+    }
+
+    // Compute the dimensions of the i-slide element in the absence of
+    // additional constraints, and set box dimensions that are not yet imposed.
+    const targetWidth = this.#width;
+    box.width = box.width || this.#pendingWidth || targetWidth;
+
+    const targetHeight = this.#height ||
+      (this.#intrinsicWidth && this.#intrinsicHeight ?
+        this.#intrinsicHeight * box.width / this.#intrinsicWidth :
+        box.width / defaultAspectRatio);
+    box.height = box.height || this.#pendingHeight || targetHeight;
+
+    // Reset pending resize if needed
+    this.#pendingWidth = null;
+    this.#pendingHeight = null;
+
+    // Compute the scale for slide to fit in the box
+    // (Note the need to convert from CSS points to CSS pixels for PDF slides)
+    const scale = Math.min(
+      box.height / this.#intrinsicHeight,
+      box.width / this.#intrinsicWidth) * (this.#pdfPage ? 72 / 96 : 1);
+
+    // No need to scale content if scale is already the right one
+    if ((this.#slideScale === scale) &&
+        (this.#slideTargetWidth === targetWidth) &&
+        (this.#slideTargetHeight === targetHeight)) {
+      log(logPrefix, 'not needed');
+      return;
+    }
+    log(logPrefix, `scale:${this.#slideScale}=>${scale}`,
+      `width:${this.#slideTargetWidth}=>${targetWidth}`,
+      `height:${this.#slideTargetHeight}=>${targetHeight}`);
+    this.#slideScale = scale;
+    this.#slideTargetWidth = targetWidth;
+    this.#slideTargetHeight = targetHeight;
+
+    if (this.#pdfPage) {
+      // Slide to render is a PDF slide
+      const pdfjsViewer = window[PDFScripts.pdfjsViewer.obj];
+
+      // Drop PDF content that may already have been rendered
+      this.#slideEl.replaceChildren();
+
+      // Make slides fit the desired dimensions of the component
+      const viewport = this.#pdfPage.getViewport({ scale });
+      const pdfPageView = new pdfjsViewer.PDFPageView({
+        container: this.#slideEl,
+        id: this.#slideNumber,
+        scale: scale,
+        defaultViewport: viewport,
+        eventBus: new pdfjsViewer.EventBus(),
+        textLayerFactory: new pdfjsViewer.DefaultTextLayerFactory(),
+        annotationLayerFactory: new pdfjsViewer.DefaultAnnotationLayerFactory()
+      });
+
+      // Associates the actual page with the view, and draw it
+      pdfPageView.setPdfPage(this.#pdfPage);
+      await pdfPageView.draw();
+    }
+    else {
+      const width = this.#intrinsicWidth * scale;
+      const height = this.#intrinsicHeight * scale;
+
+      this.#slideEl.style.width = `${width}px`;
+      this.#slideEl.style.height = `${height}px`;
+
+      // Note <body> is not set when an error occurred
+      const body = this.#slideEl.querySelector('body');
+      if (body) {
+        body.style.transform = `scale(${scale})`;
+      }
+      else {
+        // An error means we fallback to the inner HTML content, so no intrinsic
+        // dimensions anymore. Or should we rather stick to the requested width
+        // and height as for <img>?
+        this.#slideEl.style.width = 'auto';
+        this.#slideEl.style.height = 'auto';
+        this.#hostStyleEl.textContent = this.#getHostStyles('auto', 'auto');
+        return;
+      }
+    }
+
+    // Set the targeted dimensions (note CSS properties may further constrain
+    // the actual dimensions of the element, overriding the width and height
+    // set at the :host level. That is good, these directives tell the browser
+    // to resize the element to the right dimensions when these constraints
+    // change or disappear).
+    this.#hostStyleEl.textContent = this.#getHostStyles(targetWidth, targetHeight);
   }
 }
 

@@ -23,6 +23,7 @@ const debug = !!process.env.DEBUG;
 const islideLoader = `
 <!DOCTYPE html>
 <html>
+  ${debug ? '<script type="text/javascript">const DEBUG = true;</script>' : ''}
   <script src="${rootUrl}/i-slide.js" type="module" defer></script>
   <body>`;
 
