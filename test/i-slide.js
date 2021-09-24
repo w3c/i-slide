@@ -220,6 +220,35 @@ const tests = {
       },
       result: "aria-busy before:false during:true after:false"
     }
+  },
+
+  "reflects attributes in properties": {
+    slide: "shower.html#1",
+    expects: {
+      eval: async _ => {
+        const el = window.slideEl;
+        el.setAttribute("width", 400);
+        el.setAttribute("type", "text/html");
+        el.setAttribute("src", "test/resources/shower.html#2");
+        return `width:${el.width} type:${el.type} src:${el.src}`;
+      },
+      // NB: the "src" property returns the absolute URL (as for <img> elements)
+      result: `width:400 type:text/html src:${baseUrl}shower.html#2`
+    }
+  },
+
+  "propagates property updates to attributes": {
+    slide: "shower.html#1",
+    expects: {
+      eval: async _ => {
+        const el = window.slideEl;
+        el.width = 400;
+        el.type = "text/html";
+        el.src = "test/resources/shower.html#2";
+        return `width:${el.getAttribute('width')} type:${el.getAttribute('type')} src:${el.getAttribute('src')}`;
+      },
+      result: `width:400 type:text/html src:test/resources/shower.html#2`
+    }
   }
 };
 

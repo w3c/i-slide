@@ -41,7 +41,8 @@ const PDFScripts = {
 
 
 /**
- * Promise that 
+ * Whether PDF scripts are being or have been handled, and promise that they
+ * are available.
  */
 let PDFScriptsHandled = false;
 let resolvePDFScriptsPromise;
@@ -126,7 +127,7 @@ class ISlide extends HTMLElement {
 
     // Propagate the value to the HTML if change came from JS
     if (this.getAttribute('width') !== value) {
-      this.setAttribute('src', value);
+      this.setAttribute('width', value);
     }
 
     // Changing the width triggers a render to rescale the content, unless
@@ -155,9 +156,14 @@ class ISlide extends HTMLElement {
       this.setAttribute('type', value);
     }
 
+    // Start loading PDF scripts if needed
+    if (this.#type === 'application/pdf') {
+      this.#loadPDFScripts();
+    }
+
     // Trigger a fetch-and-render cycle on next tick if value changed, unless
     // that's already planned
-    if ((this.#src !== oldValue) && !this.#renderCyclePlanned) {
+    if ((this.#type !== oldValue) && !this.#renderCyclePlanned) {
       this.#renderCyclePlanned = true;
       setTimeout(_ => this.#fetchAndRender(), 0);
     }
@@ -193,7 +199,7 @@ class ISlide extends HTMLElement {
     const cycleId = ++this.#renderCycleID;
 
     // Cycle is no longer pending, we're handling it
-    this.#renderCyclePlanned = null;
+    this.#renderCyclePlanned = false;
 
     // Tell assistive technology that we're starting a cycle that will update
     // the contents of the shadow tree
@@ -247,10 +253,6 @@ class ISlide extends HTMLElement {
     pendingFetch[docUrl] = new Promise(resolve => {
       pendingResolve = resolve;
     });
-
-    if (this.type === 'application/pdf') {
-      this.#loadPDFScripts();
-    }
 
     try {
       const resp = await fetch(docUrl);
