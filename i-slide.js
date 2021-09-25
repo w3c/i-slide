@@ -657,6 +657,9 @@ class ISlide extends HTMLElement {
       case 'width':
         this.width = newValue;
         break;
+      case 'height':
+        this.height = newValue;
+        break;
     }
   }
 
