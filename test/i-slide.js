@@ -19,10 +19,12 @@ const port = process.env.PORT ?? 8081;
 const rootUrl = `http://localhost:${port}`;
 const baseUrl = `${rootUrl}/test/resources/`;
 const debug = !!process.env.DEBUG;
+const testTitle = process.env.ISLIDETEST;
 
 const islideLoader = `
 <!DOCTYPE html>
 <html>
+  ${debug ? '<script type="text/javascript">const DEBUG = true;</script>' : ''}
   <script src="${rootUrl}/i-slide.js" type="module" defer></script>
   <body>`;
 
@@ -172,6 +174,14 @@ const tests = {
     }
   },
 
+  "renders as a 300px wide element by default": {
+    slide: "shower.html#1",
+    expects: {
+      eval: _ => window.getComputedStyle(window.slideEl).width,
+      result: '300px'
+    }
+  },
+
   "sets the styles of the root element properly for HTML slides": {
     slide: "shower.html#1",
     expects: {
@@ -228,12 +238,13 @@ const tests = {
       eval: async _ => {
         const el = window.slideEl;
         el.setAttribute("width", 400);
+        el.setAttribute("height", 200);
         el.setAttribute("type", "text/html");
         el.setAttribute("src", "test/resources/shower.html#2");
-        return `width:${el.width} type:${el.type} src:${el.src}`;
+        return `width:${el.width} height:${el.height} type:${el.type} src:${el.src}`;
       },
       // NB: the "src" property returns the absolute URL (as for <img> elements)
-      result: `width:400 type:text/html src:${baseUrl}shower.html#2`
+      result: `width:400 height:200 type:text/html src:${baseUrl}shower.html#2`
     }
   },
 
@@ -243,11 +254,222 @@ const tests = {
       eval: async _ => {
         const el = window.slideEl;
         el.width = 400;
+        el.height = 200;
         el.type = "text/html";
         el.src = "test/resources/shower.html#2";
-        return `width:${el.getAttribute('width')} type:${el.getAttribute('type')} src:${el.getAttribute('src')}`;
+        return `width:${el.getAttribute('width')} height:${el.getAttribute('height')} type:${el.getAttribute('type')} src:${el.getAttribute('src')}`;
       },
-      result: `width:400 type:text/html src:test/resources/shower.html#2`
+      result: `width:400 height:200 type:text/html src:test/resources/shower.html#2`
+    }
+  },
+
+  "renders as a box with the requested dimensions (HTML slide)": {
+    slide: { url: "shower.html#1", width: 400, height: 400 },
+    expects: {
+      eval: async _ => {
+        const styles = window.getComputedStyle(window.slideEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: "width:400px height:400px"
+    }
+  },
+
+  "renders as a box with the requested dimensions (PDF slide)": {
+    slide: { url: "slides.pdf#1", width: 400, height: 400 },
+    expects: {
+      eval: async _ => {
+        const styles = window.getComputedStyle(window.slideEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: "width:400px height:400px"
+    }
+  },
+
+  "scales content to fit the available width (HTML slide)": {
+    slide: { url: "shower.html#1", width: 144, height: 144 },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("html");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "scales content to fit the available height (HTML slide)": {
+    slide: { url: "shower.html#1", width: 600, height: 144 },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("html");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "scales content to fit the available width (PDF slide)": {
+    slide: { url: "slides.pdf#1", width: 144, height: 144 },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "scales content to fit the available height (PDF slide)": {
+    slide: { url: "slides.pdf#1", width: 600, height: 144 },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "scales content to fit the available width when CSS sets the box dimensions": {
+    slide: { url: "shower.html#1", css: "i-slide { width: 144px }" },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("html");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "scales content to fit the available height when CSS sets the box dimensions": {
+    slide: { url: "shower.html#1", css: "i-slide { height: 144px }" },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("html");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "scales content when box gets sized down (HTML slide)": {
+    slide: { url: "shower.html#1" },
+    expects: {
+      eval: async _ => {
+        window.slideEl.style.width = "144px";
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        // Need to give code a bit of time to process the resize
+        window.setTimeout(_ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("html");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        }, 100);
+        return promise;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "scales content when box gets sized down (PDF slide)": {
+    slide: { url: "slides.pdf#1" },
+    expects: {
+      eval: async _ => {
+        window.slideEl.style.height = "144px";
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        // Need to give code a bit of time to process the resize
+        window.setTimeout(_ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        }, 100);
+        return promise;
+      },
+      result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "renders new slide correctly when slide changes (HTML to HTML)": {
+    slide: { url: "shower.html#1", width: 144 },
+    expects: {
+      eval: async _ => {
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        window.slideEl.addEventListener("load", _ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("html");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        });
+        window.slideEl.src = "test/resources/shower.html#2";
+        return promise;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "renders new slide correctly when slide changes (PDF to PDF)": {
+    slide: { url: "slides.pdf#1", width: 144 },
+    expects: {
+      eval: async _ => {
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        window.slideEl.addEventListener("load", _ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        });
+        window.slideEl.src = "test/resources/slides.pdf#2";
+        return promise;
+      },
+      result: `width:144px height:${144/(16/9)}px`
+    }
+  },
+
+  "renders new slide correctly when slide changes (HTML to PDF)": {
+    slide: { url: "shower.html#1", height: 144 },
+    expects: {
+      eval: async _ => {
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        window.slideEl.addEventListener("load", _ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        });
+        window.slideEl.src = "test/resources/slides.pdf#1";
+        return promise;
+      },
+      result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "renders new slide correctly when slide changes (PDF to HTML)": {
+    slide: { url: "slides.pdf#1", height: 144 },
+    expects: {
+      eval: async _ => {
+        let resolve;
+        const promise = new Promise(res => resolve = res);
+
+        window.slideEl.addEventListener("load", _ => {
+          const rootEl = window.slideEl.shadowRoot.querySelector("html");
+          const styles = window.getComputedStyle(rootEl);
+          resolve(`width:${styles.width} height:${styles.height}`);
+        });
+        window.slideEl.src = "test/resources/shower.html#1";
+        return promise;
+      },
+      result: `width:${144*(16/9)}px height:144px`
     }
   }
 };
@@ -323,6 +545,7 @@ describe("Test loading slides", function() {
   });
 
   for (let [title, slideset] of Object.entries(tests)) {
+    if (testTitle && !title.includes(testTitle)) continue;
     slideset = Array.isArray(slideset) ? slideset : [slideset];
 
     it(title, async () => {
@@ -331,9 +554,11 @@ describe("Test loading slides", function() {
       const injectContent = async req => {
         const html = slideset.map(s => {
           const slide = (typeof s.slide === "string") ? { url: s.slide } : s.slide;
-          return `<i-slide
-            src="${new URL(slide.url, baseUrl).href}"
-            ${slide.width ? `width=${slide.width}`: ""}>
+          return `
+            ${slide.css ? "<style>" + slide.css + "</style>" : ""}
+            <i-slide src="${new URL(slide.url, baseUrl).href}"
+                ${slide.width ? `width=${slide.width}`: ""}
+                ${slide.height ? `height=${slide.height}`: ""}>
               ${slide.innerHTML ?? ""}
             </i-slide>`;
         }).join("\n");
@@ -357,17 +582,19 @@ describe("Test loading slides", function() {
     });
   }
 
-  it('loads the slides on the demo page as expected', async () => {
-    const page = await browser.newPage();
-    await page.goto(baseUrl + 'demo.html');
-    for (let i = 0; i < demoTestExpectations; i++) {
-      const expects = demoTestExpectations[i];
-      const res = await evalComponent(page, expects, i);
-      for (let k = 0; k < expects.length; k++) {
-        assert.equal(res[k], expects[k].result);
+  if (!testTitle) {
+    it('loads the slides on the demo page as expected', async () => {
+      const page = await browser.newPage();
+      await page.goto(baseUrl + 'demo.html');
+      for (let i = 0; i < demoTestExpectations; i++) {
+        const expects = demoTestExpectations[i];
+        const res = await evalComponent(page, expects, i);
+        for (let k = 0; k < expects.length; k++) {
+          assert.equal(res[k], expects[k].result);
+        }
       }
-    }
-  });
+    });
+  }
 
   after(async () => {
     if (!debug) {
