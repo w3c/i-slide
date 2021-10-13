@@ -70,6 +70,14 @@ const tests = {
     ]
   },
 
+  "finds a shower slide by its ID": {
+    slide: "shower.html#cover",
+    expects: {
+      path: "img@src",
+      result: rootUrl + "/node_modules/@shower/shower/pictures/cover.jpg"
+    }
+  },
+
   "loads multiple shower slides": [
     {
       slide: "shower.html#1",
