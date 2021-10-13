@@ -558,8 +558,9 @@ class ISlide extends HTMLElement {
         const headEl = doc.querySelector('head').cloneNode(true);
         const bodyEl = doc.querySelector('body').cloneNode();
         const slideNumber = parseInt(slideId, 10);
-        const origSlideEl = doc.querySelectorAll('.slide')[slideNumber - 1];
-        if (!origSlideEl) throw new Error(`Could not find slide ${slideNumber} in ${docUrl}`);
+        const origSlideEl = doc.getElementById(slideId) ||
+              doc.querySelectorAll('.slide')[slideNumber - 1];
+        if (!origSlideEl) throw new Error(`Could not find slide ${slideId} in ${docUrl}`);
         const slideEl = origSlideEl.cloneNode(true) ;
         slideEl.style.marginLeft = '0';
         bodyEl.style.top = 'inherit';
