@@ -342,7 +342,7 @@ const tests = {
   },
 
   "scales content to fit the available width when CSS sets the box dimensions": {
-    slide: { url: "shower.html#1", css: "i-slide { width: 144px }" },
+    slide: { url: "shower.html#1", css: "[is=i-slide] { width: 144px }" },
     expects: {
       eval: async _ => {
         const rootEl = window.slideEl.shadowRoot.querySelector("html");
@@ -354,7 +354,7 @@ const tests = {
   },
 
   "scales content to fit the available height when CSS sets the box dimensions": {
-    slide: { url: "shower.html#1", css: "i-slide { height: 144px }" },
+    slide: { url: "shower.html#1", css: "[is=i-slide] { height: 144px }" },
     expects: {
       eval: async _ => {
         const rootEl = window.slideEl.shadowRoot.querySelector("html");
@@ -498,7 +498,7 @@ async function evalComponent(page, expectations, slideNumber = 0) {
   try {
     // Set current <i-slide> el and wait for page to be fully loaded
     await page.evaluate(async (slideNumber) => {
-      const el = document.querySelectorAll("i-slide")[slideNumber];
+      const el = document.querySelectorAll("span[is=i-slide]")[slideNumber];
       if (!el) {
         throw new Error("cannot find Web Component");
       }
@@ -564,11 +564,11 @@ describe("Test loading slides", function() {
           const slide = (typeof s.slide === "string") ? { url: s.slide } : s.slide;
           return `
             ${slide.css ? "<style>" + slide.css + "</style>" : ""}
-            <i-slide src="${new URL(slide.url, baseUrl).href}"
+            <span is=i-slide><a href="${new URL(slide.url, baseUrl).href}"
                 ${slide.width ? `width=${slide.width}`: ""}
                 ${slide.height ? `height=${slide.height}`: ""}>
               ${slide.innerHTML ?? ""}
-            </i-slide>`;
+            test</a></span>`;
         }).join("\n");
         req.respond({
           body: islideLoader + html
