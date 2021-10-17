@@ -10,19 +10,27 @@
 
     <p><code>&lt;i-slide&gt;</code> is a Web component that allows embedding HTML and PDF slides inside a Web page.</p>
 
+    <p>To use it, wrap <code>&lt;span is=i-slide&gt;...&lt;/span&gt;</code> around a link to a slide.</p>
+
     <p>It works with the <a href="https://shwr.me/">Shower HTML slides</a> engine.</p>
-    <pre><code>&lt;i-slide src='<a href="http://shower.github.io/shower/">http://shower.github.io/shower/</a>#2'&gt;&lt;/i-slide&gt;</code></pre>
+    <p><code>&lt;span is=i-slide&gt;&lt;a href='<a href="http://shower.github.io/shower/?full#2">http://shower.github.io/shower/?full#2</a>'&gt;Shower slide 2&lt;/a&gt;&lt;/span&gt;</code></p>
     <p>allows to embed the second slide of the referenced slideset:</p>
-    <p><i-slide src='https://shower.github.io/shower/#2' width="500"></i-slide></p>
+    <p><span is=i-slide width="500"><a href='https://shower.github.io/shower/?full#2'>Shower slide 2</a></span></p>
 
     <p>It also works with the <a href="https://www.w3.org/Talks/Tools/b6plus/">b6+ HTML slides</a> engine.</p>
-    <pre><code>&lt;i-slide src='https://www.w3.org/Talks/Tools/b6plus/#3'&gt;&lt;/i-slide&gt;</code></pre>
+    <p><code>&lt;span is=i-slide&gt;&lt;a href='<a href="https://www.w3.org/Talks/Tools/b6plus/?full#3">https://www.w3.org/Talks/Tools/b6plus/?full#3</a>'&gt;B6+ slide 3&lt;/a&gt;&lt;/span&gt;</code></p>
     <p>allows to embed the third slide of the referenced slideset:</p>
-    <p><i-slide src='https://www.w3.org/Talks/Tools/b6plus/#3' width="500"></i-slide></p>
+    <p><span is=i-slide width="500"><a href='https://www.w3.org/Talks/Tools/b6plus/?full#3'>B6+ slide 3</a></span></p>
 
     <p>It also works with the PDF slides.</p>
-    <pre><code>&lt;i-slide src='<a href="https://www.w3.org/2020/Talks/mlws/ba-media.pdf">https://www.w3.org/2020/Talks/mlws/ba-media.pdf</a>#page=5'&gt;&lt;/i-slide&gt;</code></pre>
+    <p><code>&lt;span is=i-slide&gt;&lt;a href='<a href="https://www.w3.org/2020/Talks/mlws/ba-media.pdf#page=5">https://www.w3.org/2020/Talks/mlws/ba-media.pdf#page=5</a>'&gt;PDF slide 5&lt;/a&gt;&lt;/span&gt;</code></p>
     <p>allows to embed the fifth slide of the referenced slideset:</p>
-    <p><i-slide src='https://www.w3.org/2020/Talks/mlws/ba-media.pdf#page=5' width="500"></i-slide></p>
+    <p><span is=i-slide width="500"><a href='https://www.w3.org/2020/Talks/mlws/ba-media.pdf#page=5'>PDF slide 5</a></span></p>
+
+    <p>It is also possble to use <code>&lt;i-slide&gt;</code> as a tag. But note that this means there will be no link to the slide if JavaScript is turned off or it the page is used elsewhere than in a browser.</p>
+    <p><code>&lt;i-slide src='<a href="https://www.w3.org/Talks/Tools/b6plus/?full#3">https://www.w3.org/Talks/Tools/b6plus/?full#3</a>'&gt;&lt;/i-slide&gt;</code></p>
+    <p>allows to embed the third slide of the referenced slideset:</p>
+    <p><i-slide width="500" src='https://www.w3.org/Talks/Tools/b6plus/?full#3'></i-slide></p>
+
   </body>
 </html>
