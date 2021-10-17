@@ -72,7 +72,7 @@ const PDFScriptsLoaded = new Promise((resolve, reject) => {
 /**
  * The i-slide Web component
  */
-class ISlide extends HTMLElement {
+class ISlide extends HTMLSpanElement {
   /**
    * A fetch-and-render cycle has been scheduled to run during next tick
    */
@@ -284,6 +284,11 @@ class ISlide extends HTMLElement {
     super();
     this.loaded = false;
     this.attachShadow({ mode: 'open' });
+
+    // Find the element inside this SPAN that points to the slide.
+    // TODO: Add a watch for future changes to the href attribute.
+    let a = this.querySelector("[href]");
+    if (a) this.src = a.href;
 
     // Scale content when element gets resized, unless a render is already
     // planned, or unless a fetch is needed (in other words unless no
@@ -844,6 +849,6 @@ class ISlide extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('i-slide', ISlide);
+customElements.define('i-slide', ISlide, {extends: "span"});
 
 export default ISlide;
