@@ -10,6 +10,10 @@ const server = new HttpServer({
     // Ignore "not found" errors that some tests generate on purpose
     if (err && err.status !== 404) {
       console.error(err, req.url, req.status);
+    } else if (req.url.startsWith(`/test/resources/i-slide.js`)) {
+      // To make the demo file usable on the root dir, we make
+      // the test server resolve it
+      res.redirect(req.url.replace('/test/resources', ''));
     }
   }
 });
@@ -25,7 +29,7 @@ const islideLoader = `
 <!DOCTYPE html>
 <html>
   ${debug ? '<script type="text/javascript">const DEBUG = true;</script>' : ''}
-  <script src="${rootUrl}/i-slide.js" type="module"></script>
+  <script src="${rootUrl}/i-slide.js?register" type="module"></script>
   <body>`;
 
 
@@ -491,6 +495,9 @@ const demoTestExpectations = [
   ],
   [
     { path: "canvas", result: true }
+  ],
+  [
+    { path: "canvas", result: true }
   ]
 ];
 
@@ -594,7 +601,7 @@ describe("Test loading slides", function() {
     it('loads the slides on the demo page as expected', async () => {
       const page = await browser.newPage();
       await page.goto(baseUrl + 'demo.html');
-      for (let i = 0; i < demoTestExpectations; i++) {
+      for (let i = 0; i < demoTestExpectations.length; i++) {
         const expects = demoTestExpectations[i];
         const res = await evalComponent(page, expects, i);
         for (let k = 0; k < expects.length; k++) {
