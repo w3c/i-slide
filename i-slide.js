@@ -849,11 +849,11 @@ export default ISlide;
 if (import.meta && import.meta.url) {
   const queryString = new URL(import.meta.url).search.slice(1);
   const params = new URLSearchParams(queryString);
-  if (params.get("register") !== null || params.get("replaceSelector")) {
+  if (params.get("register") !== null || params.get("selector")) {
     customElements.define('i-slide', ISlide);
   }
-  if (params.get("replaceSelector")) {
-    document.querySelectorAll(params.get("replaceSelector")).forEach(
+  if (params.get("selector")) {
+    document.querySelectorAll(params.get("selector")).forEach(
       el => {
         const newEl = document.createElement("i-slide");
         const src = el.getAttribute("href") || el.getAttribute("src") || el.dataset["islideSrc"];
