@@ -24,12 +24,23 @@ const rootUrl = `http://localhost:${port}`;
 const baseUrl = `${rootUrl}/test/resources/`;
 const debug = !!process.env.DEBUG;
 const testTitle = process.env.ISLIDETEST;
+const ELEMENTNAME = "x-slide";
 
 const islideLoader = `
 <!DOCTYPE html>
 <html>
   ${debug ? '<script type="text/javascript">const DEBUG = true;</script>' : ''}
-  <script src="${rootUrl}/i-slide.js?register" type="module"></script>
+  <script type="module">
+import ISlide from "${rootUrl}/ISlide.js";
+customElements.define('${ELEMENTNAME}', ISlide);
+</script>
+  <body>`;
+
+const islideLoaderSideEffect = `
+<!DOCTYPE html>
+<html>
+  ${debug ? '<script type="text/javascript">const DEBUG = true;</script>' : ''}
+  <script src="${rootUrl}/i-slide.js" type="module"></script>
   <body>`;
 
 
@@ -501,11 +512,11 @@ const demoTestExpectations = [
   ]
 ];
 
-async function evalComponent(page, expectations, slideNumber = 0) {
+async function evalComponent(page, elemName, expectations, slideNumber = 0) {
   try {
     // Set current <i-slide> el and wait for page to be fully loaded
-    await page.evaluate(async (slideNumber) => {
-      const el = document.querySelectorAll("i-slide")[slideNumber];
+    await page.evaluate(async (elemName, slideNumber) => {
+      const el = document.querySelectorAll(elemName)[slideNumber];
       if (!el) {
         throw new Error("cannot find Web Component");
       }
@@ -522,7 +533,7 @@ async function evalComponent(page, expectations, slideNumber = 0) {
         resolve();
       });
       return p;
-    }, slideNumber);
+    }, elemName, slideNumber);
 
     // Evaluate expectations one by one (needed to be able to run custom
     // evaluation functions)
@@ -562,39 +573,39 @@ describe("Test loading slides", function() {
   for (let [title, slideset] of Object.entries(tests)) {
     if (testTitle && !title.includes(testTitle)) continue;
     slideset = Array.isArray(slideset) ? slideset : [slideset];
-
-    it(title, async () => {
-      const page = await browser.newPage();
-      await page.setRequestInterception(true);
-      const injectContent = async req => {
-        const html = slideset.map(s => {
-          const slide = (typeof s.slide === "string") ? { url: s.slide } : s.slide;
-          return `
-            ${slide.css ? "<style>" + slide.css + "</style>" : ""}
-            <i-slide src="${new URL(slide.url, baseUrl).href}"
+    for (let [loader, elemName, sideEffect] of [[islideLoader, ELEMENTNAME, false], [islideLoaderSideEffect, "i-slide", true]]) {
+      it(title + ` based on ${sideEffect ? "": "no-"}side effect library`, async () => {
+        const page = await browser.newPage();
+        await page.setRequestInterception(true);
+        const injectContent = async req => {
+          const html = slideset.map(s => {
+            const slide = (typeof s.slide === "string") ? { url: s.slide } : s.slide;
+            return `
+            ${slide.css ? "<style>" + slide.css.replace(/i-slide/g, elemName) + "</style>" : ""}
+            <${elemName} src="${new URL(slide.url, baseUrl).href}"
                 ${slide.width ? `width=${slide.width}`: ""}
                 ${slide.height ? `height=${slide.height}`: ""}>
               ${slide.innerHTML ?? ""}
-            </i-slide>`;
-        }).join("\n");
-        req.respond({
-          body: islideLoader + html
-        });
-        await page.setRequestInterception(false);
-      };
-      page.once('request', injectContent);
-      page.on("console", msg => console.log(msg.text()));
-      await page.goto(rootUrl);
-      for (let i = 0; i < slideset.length; i++) {
-        const expects = Array.isArray(slideset[i].expects) ?
-          slideset[i].expects : [slideset[i].expects];
-        const res = await evalComponent(page, expects, i);
-        for (let k = 0; k < expects.length; k++) {
-          assert.equal(res[k], expects[k].result);
+            </${elemName}>`;
+          }).join("\n");
+          req.respond({
+            body: loader + html
+          });
+          await page.setRequestInterception(false);
+        };
+        page.once('request', injectContent);
+        page.on("console", msg => console.log(msg.text()));
+        await page.goto(rootUrl);
+        for (let i = 0; i < slideset.length; i++) {
+          const expects = Array.isArray(slideset[i].expects) ?
+                slideset[i].expects : [slideset[i].expects];
+          const res = await evalComponent(page, elemName, expects, i);
+          for (let k = 0; k < expects.length; k++) {
+            assert.equal(res[k], expects[k].result);
+          }
         }
-      }
-
-    });
+      });
+    }
   }
 
   if (!testTitle) {
@@ -603,7 +614,7 @@ describe("Test loading slides", function() {
       await page.goto(baseUrl + 'demo.html');
       for (let i = 0; i < demoTestExpectations.length; i++) {
         const expects = demoTestExpectations[i];
-        const res = await evalComponent(page, expects, i);
+        const res = await evalComponent(page, "i-slide", expects, i);
         for (let k = 0; k < expects.length; k++) {
           assert.equal(res[k], expects[k].result);
         }
