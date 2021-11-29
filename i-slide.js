@@ -843,7 +843,22 @@ class ISlide extends HTMLElement {
   }
 }
 
-// Register the custom element
-customElements.define('i-slide', ISlide);
-
 export default ISlide;
+
+// We enable side-effects when hard-coded query string parameters are set
+if (import.meta && import.meta.url) {
+  const queryString = new URL(import.meta.url).search.slice(1);
+  const params = new URLSearchParams(queryString);
+  if (params.get("register") !== null || params.get("replaceSelector")) {
+    customElements.define('i-slide', ISlide);
+  }
+  if (params.get("replaceSelector")) {
+    document.querySelectorAll(params.get("replaceSelector")).forEach(
+      el => {
+        const newEl = document.createElement("i-slide");
+        const src = el.getAttribute("href") || el.getAttribute("src") || el.dataset["islideSrc"];
+        newEl.setAttribute("src", src);
+        el.replaceWith(newEl);
+      });
+  }
+}
