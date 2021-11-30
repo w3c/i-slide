@@ -38,6 +38,24 @@ See it in action in the [demo page](https://w3c.github.io/i-slide/demo.html).
 
 **Important:** If the slide set is served from an origin different from the one where the component is used, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) must be enabled for the slide set, meaning that the HTTP server that hosts the slide set needs to return an `Access-Control-Allow-Origin: *` HTTP header. This may already be the case (for instance, CORS is already enabled for all pages under `*.github.io`).
 
+### Modules with and without side-effect
+
+`ISlide.js` contains the class of the Web Component, without any side effect, allowing to associate the feature with a Web Component tag name of your choice:
+```js
+import ISlide from 'Islide';
+customElements.define('my-slide', ISlide);
+```
+
+`i-slide.js` automatically registers the ISlide component and associates it with the `i-slide` tagname; you do not need any additional script to start making use of `i-slide`elements.
+
+The `i-slide.js` module can also be imported with a query string to automatically replace elements matching a selector set in a `selector` parameter with `i-slide` elements - in that case, the `src` attribute of the `i-slide` element will be copied from either an `href`, `src` or `data-islide-src` attribute present in the original element. This mode allows to use i-slide on regular markup. For instance:
+```html
+<script src="i-slide.js?selector=a.islide" type="module"></script>
+<body>
+<a class="islide" href="slides.html#intro">Intro Slide</a>
+```
+will use i-slide to render the slide "intro" from the linked slideset in lieu of the link.
+
 ### Constraints
 
 #### Supported slide formats
