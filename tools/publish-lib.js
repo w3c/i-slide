@@ -9,12 +9,16 @@ const fs = require('fs');
 const semver = require('semver');
 const execFile = util.promisify(require('child_process').execFile);
 
-const lib = 'i-slide';
+const libs = ['i-slide', 'ISlide'];
 
-async function writeLib(ref, filename) {
+async function writeLib(ref, filename, lib) {
   filename = filename || `${lib}-${ref}`;
-  const { stdout: showOut } = await execFile('git', ['show', `${ref}:${lib}.js`]);
-  fs.writeFileSync(`${filename}.js`, showOut, 'utf8');
+  try {
+    const { stdout: showOut } = await execFile('git', ['show', `${ref}:${lib}.js`]);
+    fs.writeFileSync(`${filename}.js`, showOut, 'utf8');
+  } catch (e) {
+    console.log(`  Skipping ${filename}, no matching version in ${ref}`);
+  }
 }
 
 async function main() {
@@ -51,26 +55,27 @@ async function main() {
   const { stdout: checkOut } = await execFile('git', ['checkout', 'gh-pages']);
   console.log('  done');
 
-  console.log('Create one lib file per tag...');
-  for (const tag of tags) {
-    await writeLib(tag, `${lib}-${semver.clean(tag)}`);
+  for (const lib of libs) {
+    console.log('Create one lib file per tag where the file exists...');
+    for (const tag of tags) {
+      await writeLib(tag, `${lib}-${semver.clean(tag)}`, lib);
+    }
+    console.log('  done');
+
+    console.log('Create one lib file per major version...');
+    for (const version of majorVersions) {
+      await writeLib(version.tag, `${lib}-${version.major}`, lib);
+    }
+    console.log('  done');
+
+    console.log('Add latest release...')
+    await writeLib(lastTag, lib, lib);
+    console.log('  done');
+
+    console.log('Add nightly version from main branch...')
+    await writeLib('main', `${lib}-nightly`, lib);
+    console.log('  done');
   }
-  console.log('  done');
-
-  console.log('Create one lib file per major version...');
-  for (const version of majorVersions) {
-    await writeLib(version.tag, `${lib}-${version.major}`);
-  }
-  console.log('  done');
-
-  console.log('Add latest release...')
-  await writeLib(lastTag, lib);
-  console.log('  done');
-
-  console.log('Add nightly version from main branch...')
-  await writeLib('main', `${lib}-nightly`);
-  console.log('  done');
-
   console.log('Update README, LICENSE and demo.html if needed...');
   for (const file of ['README.md', 'LICENSE', {inpath: 'test/resources/demo.html', outpath: 'demo.html'}]) {
     const inpath = file.inpath ?? file;
@@ -81,6 +86,7 @@ async function main() {
   console.log('  done');
 
   console.log('Commit changes to gh-pages branch...');
+  await execFile('git', ['add', 'ISlide*.js']);
   await execFile('git', ['add', 'i-slide*.js']);
   await execFile('git', ['add', 'README.md']);
   await execFile('git', ['add', 'LICENSE']);
