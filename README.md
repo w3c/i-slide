@@ -42,7 +42,7 @@ See it in action in the [demo page](https://w3c.github.io/i-slide/demo.html).
 
 `ISlide.js` contains the class of the Web Component, without any side effect, allowing to associate the feature with a Web Component tag name of your choice:
 ```js
-import ISlide from 'Islide';
+import ISlide from 'ISlide';
 customElements.define('my-slide', ISlide);
 ```
 
