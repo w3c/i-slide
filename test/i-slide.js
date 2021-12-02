@@ -102,10 +102,10 @@ const tests = {
       ]
     },
     {
-      slide: { url: "shower.html#2", width: 500 },
+      slide: { url: "shower.html#2", width: 600 },
       expects: [
         { path: "ol", result: true },
-        { path: ".width", result: 500 }
+        { path: ".width", result: 600 }
       ]
     },
     {
@@ -417,6 +417,30 @@ const tests = {
         return promise;
       },
       result: `width:${144*(16/9)}px height:144px`
+    }
+  },
+
+  "scales content when box height is imposed in CSS (HTML slide)": {
+    slide: { url: "shower.html#1", css: `i-slide { display: block; width: 800px; height: ${800/(16/9)}px; }` },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("html");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:800px height:${800/(16/9)}px`
+    }
+  },
+
+  "scales content when box height is imposed in CSS (PDF slide)": {
+    slide: { url: "slides.pdf#1", css: `i-slide { display: block; width: 800px; height: ${800/(16/9)}px; }` },
+    expects: {
+      eval: async _ => {
+        const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
+        const styles = window.getComputedStyle(rootEl);
+        return `width:${styles.width} height:${styles.height}`;
+      },
+      result: `width:800px height:${800/(16/9)}px`
     }
   },
 

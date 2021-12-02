@@ -499,12 +499,12 @@ class ISlide extends HTMLElement {
     const cacheEntry = cache[docUrl];
 
     // Initial width is explicitly set
-    const width = this.#width;
+    const width = this.clientWidth || this.#width;
 
     // Initial height may be explicitly set. If not, we'll set it from the
     // width based on the default aspect ratio, unless the slide ratio is
     // already known.
-    let height = this.#height ||
+    let height = this.clientHeight || this.#height ||
       (cacheEntry.width && cacheEntry.height ?
         cacheEntry.height * width / cacheEntry.width :
         width / defaultAspectRatio);
@@ -755,10 +755,10 @@ class ISlide extends HTMLElement {
 
     // Compute the dimensions of the i-slide element in the absence of
     // additional constraints, and set box dimensions that are not yet imposed.
-    const targetWidth = this.#width;
+    const targetWidth = this.clientWidth || this.#width;
     box.width = box.width || this.#pendingWidth || targetWidth;
 
-    const targetHeight = this.#height ||
+    const targetHeight = this.clientHeight || this.#height ||
       (this.#intrinsicWidth && this.#intrinsicHeight ?
         this.#intrinsicHeight * box.width / this.#intrinsicWidth :
         box.width / defaultAspectRatio);
