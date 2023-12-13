@@ -12,6 +12,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - run: npm install -g npm@7 --registry=https://registry.npmjs.org
       - run: npm ci
       - run: npm test
