@@ -139,6 +139,7 @@ class ISlide extends HTMLElement {
       const el = document.getElementById(id);
       if (el?.href) {
 	this.#srcref = value;
+	this.#loadPDFScripts();
       } else {
 	value = '';
       }
