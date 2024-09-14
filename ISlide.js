@@ -125,6 +125,37 @@ class ISlide extends HTMLElement {
     }
   }
 
+  /**
+   * Reflects the "srcref" attribute (slide source)
+   */
+  #srcref = "";
+  get srcref() {
+    return this.#src;
+  }
+  set srcref(value) {
+    const oldValue = this.#srcref;
+    if (value) {
+      const id = value.split("#")[0];
+      const el = document.getElementById(id);
+      if (el?.href) {
+	this.#srcref = value;
+      } else {
+	value = '';
+      }
+    }
+    // Propagate the value to the HTML if change came from JS
+    if (this.getAttribute('srcref') !== value) {
+      this.setAttribute('srcref', value);
+    }
+
+    // Trigger a fetch-and-render cycle on next tick if value changed, unless
+    // that's already planned
+    if ((this.#srcref !== oldValue) && !this.#renderCyclePlanned) {
+      this.#renderCyclePlanned = true;
+      setTimeout(_ => this.#fetchAndRender(), 0);
+    }
+  }
+
 
   /**
    * Reflects the "width" attribute (width of the custom element)
@@ -269,7 +300,7 @@ class ISlide extends HTMLElement {
   /**
    * Observe changes on "src" and "width" attributes.
    */
-  static get observedAttributes() { return ['src', 'width', 'height', 'type']; }
+  static get observedAttributes() { return ['src', 'srcref', 'width', 'height', 'type']; }
 
 
   /**
@@ -346,6 +377,36 @@ class ISlide extends HTMLElement {
    * Retrieve the slide deck at the given src URL and populate the cache.
    */
   async #fetch() {
+    // srcref is assumed to be only used for PDFs
+    if (this.#srcref) {
+      const cacheKey = this.#srcref.split('#')[0];
+      if (cache[cacheKey]) {
+	return;
+      }
+      const el = document.getElementById(cacheKey);
+      if (!el?.href) {
+	return;
+      }
+      console.log(cacheKey, cache[cacheKey]);
+
+      // Inspired from https://stackoverflow.com/posts/12094943/revisions
+      const base64Marker = "application/pdf;base64,";
+      const dataUrl = new URL(el.href);
+      if (dataUrl.protocol !== "data:" || !dataUrl.pathname.startsWith(base64Marker)) {
+	return;
+      }
+      const base64 = dataUrl.pathname.substring(base64Marker.length);
+      const raw = window.atob(base64);
+      const bytes = new Uint8Array(new ArrayBuffer(raw.length));
+      for (let i = 0; i < raw.length; i++) {
+	bytes[i] = raw.charCodeAt(i);
+      }
+      await PDFScriptsLoaded;
+      const loadingTask = window[PDFScripts.pdfjsLib.obj].getDocument(bytes);
+      const pdf = await loadingTask.promise;
+      cache[cacheKey] = { type: "pdf", pdf };
+      return;
+    }
     const docUrl = this.#src.split('#')[0];
     log('fetch', docUrl, this);
 
@@ -495,7 +556,9 @@ class ISlide extends HTMLElement {
     this.#resetSlide();
     this.shadowRoot.replaceChildren();
 
-    const [docUrl, slideId] = this.#src.split('#');
+    const src = this.#srcref || this.#src;
+
+    const [docUrl, slideId] = src.split('#');
     const cacheEntry = cache[docUrl];
 
     // Initial width is explicitly set
@@ -651,6 +714,9 @@ class ISlide extends HTMLElement {
     switch (name) {
       case 'src':
         this.src = newValue;
+        break;
+      case 'srcref':
+        this.srcref = newValue;
         break;
       case 'type':
         this.type = newValue;
