@@ -387,7 +387,6 @@ class ISlide extends HTMLElement {
       if (!el?.href) {
 	return;
       }
-      console.log(cacheKey, cache[cacheKey]);
 
       // Inspired from https://stackoverflow.com/posts/12094943/revisions
       const base64Marker = "application/pdf;base64,";
