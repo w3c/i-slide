@@ -21,6 +21,10 @@ This repository hosts a Web component that may be used to inline individual HTML
     <p>PDF slides work too:</p>
     <p><i-slide src="https://example.org/myslides.pdf#page=1"></i-slide></p>
 
+    <p>PDF slides loaded via a data: URL work as well:</p>
+    <p><a href="data:application/pdf;base64,..." id="datapdf">download slides</a><i-slide srcref="datapdf#page=1"></i-slide></p>
+
+
     <p>Fallback content can be specified:</p>
     <p><i-slide src="https://example.org/notfound#4">[Slide 4 of my slide set]</i-slide></p>
 
@@ -48,7 +52,7 @@ customElements.define('my-slide', ISlide);
 
 `i-slide.js` automatically registers the ISlide component and associates it with the `i-slide` tagname; you do not need any additional script to start making use of `i-slide`elements.
 
-The `i-slide.js` module can also be imported with a query string to automatically replace elements matching a selector set in a `selector` parameter with `i-slide` elements - in that case, the `src` attribute of the `i-slide` element will be copied from either an `href`, `src` or `data-islide-src` attribute present in the original element. This mode allows to use i-slide on regular markup. For instance:
+The `i-slide.js` module can also be imported with a query string to automatically replace elements matching a selector set in a `selector` parameter with `i-slide` elements - in that case, the `src` attribute of the `i-slide` element will be copied from either an `href`, `src` or `data-islide-src` attribute present in the original element; and the `srcref` attribute from a matching `data-islide-srcref` attribute. This mode allows to use i-slide on regular markup. For instance:
 ```html
 <script src="i-slide.js?selector=a.islide" type="module"></script>
 <body>
@@ -64,7 +68,7 @@ The Web element supports:
 
 - HTML slides made with the [Shower Presentation Engine](https://shwr.me/)
 - HTML slides made with the [b6+ slide framework](https://www.w3.org/Talks/Tools/b6plus/)
-- PDF slides
+- PDF slides (either external or loaded via a `data:` URL)
 
 #### Targeting individual slides
 
