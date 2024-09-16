@@ -1,6 +1,6 @@
 {
   "name": "i-slide",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Web component to display inline slides",
   "main": "i-slide.js",
   "directories": {
