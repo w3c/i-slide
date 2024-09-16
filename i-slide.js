@@ -7,10 +7,11 @@ if (params.get("selector")) {
   document.querySelectorAll(params.get("selector")).forEach(
     el => {
       const newEl = document.createElement("i-slide");
-      const src = el.getAttribute("href") || el.getAttribute("src") || el.dataset["islidesrc"];
+      const src = el.getAttribute("href") || el.getAttribute("src") || el.dataset["islideSrc"];
       newEl.setAttribute("src", src);
-      if (el.dataset["islidesrcref"]) {
-	newEl.setAttribute("srcref", el.dataset["islidesrcref"]);
+      const srcref = el.dataset["srcref"] || el.dataset["islideSrcref"];
+      if (srcref) {
+        newEl.setAttribute("srcref", srcref);
       }
       el.replaceWith(newEl);
     });
