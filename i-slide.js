@@ -9,6 +9,10 @@ if (params.get("selector")) {
       const newEl = document.createElement("i-slide");
       const src = el.getAttribute("href") || el.getAttribute("src") || el.dataset["islideSrc"];
       newEl.setAttribute("src", src);
+      const srcref = el.dataset["srcref"] || el.dataset["islideSrcref"];
+      if (srcref) {
+        newEl.setAttribute("srcref", srcref);
+      }
       el.replaceWith(newEl);
     });
 }
