@@ -48,11 +48,11 @@ const pendingDimensions = {};
  */
 const PDFScripts = {
   'pdfjsLib': {
-    url: 'https://unpkg.com/pdfjs-dist@2.9.359/build/pdf.js',
+    url: 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/build/pdf.mjs',
     obj: 'pdfjs-dist/build/pdf'
   },
   'pdfjsViewer': {
-    url: 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.js',
+    url: 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/web/pdf_viewer.mjs',
     obj: 'pdfjs-dist/web/pdf_viewer'
   }
 };
@@ -597,9 +597,10 @@ class ISlide extends HTMLElement {
 
         const styleEl = document.createElement('link');
         styleEl.rel = 'stylesheet';
-        styleEl.href = 'https://unpkg.com/pdfjs-dist@2.9.359/web/pdf_viewer.css';
+        styleEl.href = 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/web/pdf_viewer.css';
 
         this.#slideEl = document.createElement('div');
+        this.#slideEl.setAttribute('class', 'pdfViewer');
         // Needed to properly position the annotation layer (e.g. links)
         this.#slideEl.style.position = "relative";
         this.#slideEl.style.overflow = "hidden";
@@ -744,25 +745,11 @@ class ISlide extends HTMLElement {
       if (window[obj]) {
         continue;
       }
-
-      const scriptEl = document.createElement('script');
-      scriptEl.src = url;
-
-      let resolvePromise;
-      let rejectPromise;
-      const promise = new Promise((resolve, reject) => {
-        resolvePromise = resolve;
-        rejectPromise = reject;
-      });
-      scriptEl.addEventListener('load', resolvePromise);
-      scriptEl.addEventListener('error', rejectPromise)
-      document.body.appendChild(scriptEl);
-
-      await promise;
+      window[obj] = await import(url);
     }
 
     // TODO: move hard-coded URL elsewhere
-    window[PDFScripts.pdfjsLib.obj].GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.9.359/build/pdf.worker.js';
+    window[PDFScripts.pdfjsLib.obj].GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/build/pdf.worker.mjs';
 
     resolvePDFScriptsPromise();
   }
@@ -868,9 +855,7 @@ class ISlide extends HTMLElement {
         id: this.#slideNumber,
         scale: scale,
         defaultViewport: viewport,
-        eventBus: new pdfjsViewer.EventBus(),
-        textLayerFactory: new pdfjsViewer.DefaultTextLayerFactory(),
-        annotationLayerFactory: new pdfjsViewer.DefaultAnnotationLayerFactory()
+        eventBus: new pdfjsViewer.EventBus()
       });
 
       // Associates the actual page with the view, and draw it

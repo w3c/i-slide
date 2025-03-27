@@ -75,6 +75,19 @@ const islideLoaderSideEffect = `
  * without argument, but note "window.slideEl" is set to the current <i-slide>
  * element when that function is called. The "path" property has no meaning when
  * "eval" is set.
+ *
+ * A note on canvas dimensions for PDF slides: the PDF.js library starts with
+ * default slide dimensions of 720*405 and compute a scale effect from there,
+ * applying it through CSS styles with a `calc()` formula`. When the final
+ * scale cannot be expressed through a precise float, an off-by-one error may
+ * occur for the dimensions of the final canvas. For example, if the
+ * scale computation yields 0.3555555555555555, Chrome correctly considers that
+ * 0.3555555555555555 * 720 = 255.99999999999997 and, following a CSS
+ * `round(down, ...)` formula, rounds that down to 255px, whereas we would
+ * rather expect 256px for our tests. Interestingly, Firefox somewhat manages
+ * to fix the error on its own and yields 256px in that case. Anyway, to avoid
+ * off-by-one errors, dimensions used in some of the tests are multiples of the
+ * initial dimensions used by the PDF.js library on purpose.
  */
 const tests = {
   "loads a single shower slide": {
@@ -345,14 +358,14 @@ const tests = {
   },
 
   "scales content to fit the available height (PDF slide)": {
-    slide: { url: "slides.pdf#1", width: 600, height: 144 },
+    slide: { url: "slides.pdf#1", width: 600, height: 162 },
     expects: {
       eval: async _ => {
         const rootEl = window.slideEl.shadowRoot.querySelector("canvas");
         const styles = window.getComputedStyle(rootEl);
         return `width:${styles.width} height:${styles.height}`;
       },
-      result: `width:${144*(16/9)}px height:144px`
+      result: `width:${162*(16/9)}px height:162px`
     }
   },
 
@@ -404,7 +417,7 @@ const tests = {
     slide: { url: "slides.pdf#1" },
     expects: {
       eval: async _ => {
-        window.slideEl.style.height = "144px";
+        window.slideEl.style.height = "162px";
         let resolve;
         const promise = new Promise(res => resolve = res);
 
@@ -416,7 +429,7 @@ const tests = {
         }, 100);
         return promise;
       },
-      result: `width:${144*(16/9)}px height:144px`
+      result: `width:${162*(16/9)}px height:162px`
     }
   },
 
@@ -483,7 +496,7 @@ const tests = {
   },
 
   "renders new slide correctly when slide changes (HTML to PDF)": {
-    slide: { url: "shower.html#1", height: 144 },
+    slide: { url: "shower.html#1", height: 162 },
     expects: {
       eval: async _ => {
         let resolve;
@@ -497,7 +510,7 @@ const tests = {
         window.slideEl.src = "test/resources/slides.pdf#1";
         return promise;
       },
-      result: `width:${144*(16/9)}px height:144px`
+      result: `width:${162*(16/9)}px height:162px`
     }
   },
 
@@ -649,8 +662,8 @@ describe("Test loading slides", function() {
   after(async () => {
     if (!debug) {
       await browser.close();
+      server.close();
     }
-    server.close();
   });
 });
 
