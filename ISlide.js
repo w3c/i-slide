@@ -46,13 +46,14 @@ const pendingDimensions = {};
  * 
  * TODO: Manage version number separately (and integrate CSS stylesheet)
  */
+const PDFScriptsUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.1.91/legacy/';
 const PDFScripts = {
   'pdfjsLib': {
-    url: 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/build/pdf.mjs',
+    url: PDFScriptsUrl + 'build/pdf.mjs',
     obj: 'pdfjs-dist/build/pdf'
   },
   'pdfjsViewer': {
-    url: 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/web/pdf_viewer.mjs',
+    url: PDFScriptsUrl + 'web/pdf_viewer.mjs',
     obj: 'pdfjs-dist/web/pdf_viewer'
   }
 };
@@ -597,7 +598,7 @@ class ISlide extends HTMLElement {
 
         const styleEl = document.createElement('link');
         styleEl.rel = 'stylesheet';
-        styleEl.href = 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/web/pdf_viewer.css';
+        styleEl.href = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.1.91/legacy/web/pdf_viewer.css';
 
         this.#slideEl = document.createElement('div');
         this.#slideEl.setAttribute('class', 'pdfViewer');
@@ -749,7 +750,7 @@ class ISlide extends HTMLElement {
     }
 
     // TODO: move hard-coded URL elsewhere
-    window[PDFScripts.pdfjsLib.obj].GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.0.375/legacy/build/pdf.worker.mjs';
+    window[PDFScripts.pdfjsLib.obj].GlobalWorkerOptions.workerSrc = PDFScriptsUrl + 'build/pdf.worker.mjs';
 
     resolvePDFScriptsPromise();
   }
