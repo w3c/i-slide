@@ -626,7 +626,10 @@ class ISlide extends HTMLElement {
         const origSlideEl = doc.getElementById(slideId) ||
               doc.querySelectorAll('.slide')[slideNumber - 1];
         if (!origSlideEl) throw new Error(`Could not find slide ${slideId} in ${docUrl}`);
-        const slideEl = origSlideEl.cloneNode(true) ;
+        this.#slideNumber = isNaN(slideNumber) ?
+          [...doc.querySelectorAll('.slide')].findIndex(s => s === origSlideEl) + 1 :
+          slideNumber;
+        const slideEl = origSlideEl.cloneNode(true);
         slideEl.style.marginLeft = '0';
         bodyEl.style.top = 'inherit';
         bodyEl.style.left = 'inherit';
@@ -661,6 +664,19 @@ class ISlide extends HTMLElement {
         this.#slideEl.style.overflow = 'hidden';
         this.#slideEl.style.height = `${height}px`;
         headEl.appendChild(this.#hostStyleEl);
+
+        // HTML slides are numbered through CSS, in an `.slide::after` rule
+        // that set the `content` property to `counter(slide)`. We only render
+        // one slide, let's force the value to the actual slide number
+        if (this.#slideNumber > 0) {
+          const slideNumberingStyle = document.createElement('style');
+          slideNumberingStyle.textContent = `
+            .slide::after {
+              content: "${this.#slideNumber}"
+            }
+          `;
+          headEl.appendChild(slideNumberingStyle);
+        }
 
         if (!cacheEntry.width) {
           // Nothing known about intrinsic slide dimensions for now,

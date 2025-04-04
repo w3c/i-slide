@@ -531,6 +531,50 @@ const tests = {
       },
       result: `width:${144*(16/9)}px height:144px`
     }
+  },
+
+  "shows the right slide number (b6+)": {
+    slide: "https://www.w3.org/Talks/Tools/b6plus/#3",
+    expects: {
+      eval: _ => {
+        const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
+        return window.getComputedStyle(innerSlideEl, ':after').content;
+      },
+      result: '"3"'
+    }
+  },
+
+  "shows the right slide number when an ID is specified (b6+) ": {
+    slide: "https://www.w3.org/Talks/Tools/b6plus/#media",
+    expects: {
+      eval: _ => {
+        const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
+        return window.getComputedStyle(innerSlideEl, ':after').content;
+      },
+      result: '"6"'
+    }
+  },
+
+  "shows the right slide number (shower)": {
+    slide: "shower.html#3",
+    expects: {
+      eval: _ => {
+        const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
+        return window.getComputedStyle(innerSlideEl, ':after').content;
+      },
+      result: '"3"'
+    }
+  },
+
+  "shows the right slide number when an ID is specified (shower) ": {
+    slide: "shower.html#plaintext",
+    expects: {
+      eval: _ => {
+        const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
+        return window.getComputedStyle(innerSlideEl, ':after').content;
+      },
+      result: '"3"'
+    }
   }
 };
 
