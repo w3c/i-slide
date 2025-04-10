@@ -538,9 +538,12 @@ const tests = {
     expects: {
       eval: _ => {
         const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
-        return window.getComputedStyle(innerSlideEl, ':after').content;
+        return "counter-reset: " +
+          window.getComputedStyle(innerSlideEl)["counter-reset"] +
+          "; content: " +
+          window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: '"3"'
+      result: "counter-reset: slide 2 numslides 39; content: counter(slide)"
     }
   },
 
@@ -549,9 +552,12 @@ const tests = {
     expects: {
       eval: _ => {
         const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
-        return window.getComputedStyle(innerSlideEl, ':after').content;
+        return "counter-reset: " +
+          window.getComputedStyle(innerSlideEl)["counter-reset"] +
+          "; content: " +
+          window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: '"6"'
+      result: "counter-reset: slide 5 numslides 39; content: counter(slide)"
     }
   },
 
@@ -560,9 +566,12 @@ const tests = {
     expects: {
       eval: _ => {
         const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
-        return window.getComputedStyle(innerSlideEl, ':after').content;
+        return "counter-reset: " +
+          window.getComputedStyle(innerSlideEl)["counter-reset"] +
+          "; content: " +
+          window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: '"3"'
+      result: "counter-reset: slide 2 numslides 4; content: counter(slide)"
     }
   },
 
@@ -571,9 +580,12 @@ const tests = {
     expects: {
       eval: _ => {
         const innerSlideEl = window.slideEl.shadowRoot.querySelector(".slide");
-        return window.getComputedStyle(innerSlideEl, ':after').content;
+        return "counter-reset: " +
+          window.getComputedStyle(innerSlideEl)["counter-reset"] +
+          "; content: " +
+          window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: '"3"'
+      result: "counter-reset: slide 2 numslides 4; content: counter(slide)"
     }
   }
 };
