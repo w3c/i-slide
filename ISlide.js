@@ -623,11 +623,12 @@ class ISlide extends HTMLElement {
         const headEl = doc.querySelector('head').cloneNode(true);
         const bodyEl = doc.querySelector('body').cloneNode();
         const slideNumber = parseInt(slideId, 10);
+        const origSlides = [...doc.querySelectorAll('.slide')];
         const origSlideEl = doc.getElementById(slideId) ||
-              doc.querySelectorAll('.slide')[slideNumber - 1];
+              origSlides[slideNumber - 1];
         if (!origSlideEl) throw new Error(`Could not find slide ${slideId} in ${docUrl}`);
         this.#slideNumber = isNaN(slideNumber) ?
-          [...doc.querySelectorAll('.slide')].findIndex(s => s === origSlideEl) + 1 :
+          origSlides.findIndex(s => s === origSlideEl) + 1 :
           slideNumber;
         const slideEl = origSlideEl.cloneNode(true);
         slideEl.style.marginLeft = '0';
@@ -635,6 +636,13 @@ class ISlide extends HTMLElement {
         bodyEl.style.left = 'inherit';
         bodyEl.style.margin = 'inherit';
         bodyEl.style.transformOrigin = '0 0';
+
+        // HTML slides are typically numbered through CSS, using a `slide`
+        // counter. We only render one slide, let's force the value to the
+        // actual slide number.
+        const totalSlides = origSlides.length;
+        slideEl.style.counterReset =
+          `slide ${this.#slideNumber - 1} numslides ${totalSlides}`;
 
         //  Works for Shower and b6
         slideEl.classList.add('active');
@@ -664,19 +672,6 @@ class ISlide extends HTMLElement {
         this.#slideEl.style.overflow = 'hidden';
         this.#slideEl.style.height = `${height}px`;
         headEl.appendChild(this.#hostStyleEl);
-
-        // HTML slides are numbered through CSS, in an `.slide::after` rule
-        // that set the `content` property to `counter(slide)`. We only render
-        // one slide, let's force the value to the actual slide number
-        if (this.#slideNumber > 0) {
-          const slideNumberingStyle = document.createElement('style');
-          slideNumberingStyle.textContent = `
-            .slide::after {
-              content: "${this.#slideNumber}"
-            }
-          `;
-          headEl.appendChild(slideNumberingStyle);
-        }
 
         if (!cacheEntry.width) {
           // Nothing known about intrinsic slide dimensions for now,
