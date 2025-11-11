@@ -543,7 +543,7 @@ const tests = {
           "; content: " +
           window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: "counter-reset: slide 2 numslides 39; content: counter(slide)"
+      result: "counter-reset: slide 2 numslides 40; content: counter(slide)"
     }
   },
 
@@ -557,7 +557,7 @@ const tests = {
           "; content: " +
           window.getComputedStyle(innerSlideEl, ":after").content;
       },
-      result: "counter-reset: slide 5 numslides 39; content: counter(slide)"
+      result: "counter-reset: slide 5 numslides 40; content: counter(slide)"
     }
   },
 
