@@ -313,7 +313,7 @@ MjMwNEYyREU5QUI1PjxCNEYyRjdGQjBFQkE0MTYyMEVFMDIzMDRGMkRFOUFCNT5dCj4+CnN0YXJ0
 eHJlZgoxNTQ0OAolJUVPRgo=">data: URL</a> and referenced through an `srcref` attribute.</p>
     <pre><code>&lt;a id="slideset-data" href="data:application/pdf;base64,<em>[base64 content]</em>">PDF  slides&lt;/a&gt;
 &lt;i-slide srcref='slideset-data#page-1'&gt;&lt;/i-slide&gt;</code></pre>
-    <p>allows to embed the first slide of the PDF slideset embedded in the <code>&lt;a&gt;</code> element.</p>
+    <p>allows to embed the first slide of the PDF slideset embedded in the <code>&lt;a&gt;</code> element with id `slideset-data`.</p>
     <i-slide srcref='slideset-data#1' with="500"></i-slide>
 
     <p>When imported with a query string set to <code>selector=a.islide</code>, it replaces matching elements (here, <code>a</code> elements with a class set to <code>islide</code>) with an <code>i-slide</code> element.</p>
