@@ -139,10 +139,10 @@ class ISlide extends HTMLElement {
       const id = value.split("#")[0];
       const el = document.getElementById(id);
       if (el?.href) {
-	this.#srcref = value;
-	this.#loadPDFScripts();
+        this.#srcref = value;
+        this.#loadPDFScripts();
       } else {
-	value = '';
+        value = '';
       }
     }
     // Propagate the value to the HTML if change came from JS
@@ -383,24 +383,27 @@ class ISlide extends HTMLElement {
     if (this.#srcref) {
       const cacheKey = this.#srcref.split('#')[0];
       if (cache[cacheKey]) {
-	return;
+        return;
       }
       const el = document.getElementById(cacheKey);
       if (!el?.href) {
-	return;
+        return;
       }
 
       // Inspired from https://stackoverflow.com/posts/12094943/revisions
       const base64Marker = "application/pdf;base64,";
       const dataUrl = new URL(el.href);
       if (dataUrl.protocol !== "data:" || !dataUrl.pathname.startsWith(base64Marker)) {
-	return;
+        return;
       }
       const base64 = dataUrl.pathname.substring(base64Marker.length);
-      const raw = window.atob(base64);
+      // Note: call to `decodeURI` should not be needed but Chromium fails to
+      // strip newline characters in `data:` URLs, see:
+      // https://issues.chromium.org/issues/40764064
+      const raw = window.atob(window.decodeURI(base64));
       const bytes = new Uint8Array(new ArrayBuffer(raw.length));
       for (let i = 0; i < raw.length; i++) {
-	bytes[i] = raw.charCodeAt(i);
+        bytes[i] = raw.charCodeAt(i);
       }
       await PDFScriptsLoaded;
       const loadingTask = window[PDFScripts.pdfjsLib.obj].getDocument(bytes);
