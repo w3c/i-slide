@@ -85,13 +85,30 @@ There are a variety of tools that may be used to create slides. Most of the time
 
 This Web component includes logic to retrieve and render the slide set only once and distill rendered slides one by one throughout an HTML page.
 
-
 ## Development notes
 
 - HTML slides are loaded and rendered without JavaScript.
 - HTML slides are rendered inline within the shadow tree of the Web component. The code takes care of adding the right styles and scaling the result so that the content fits the available space.
 - PDF slides are rendered in a `<canvas>` through [PDF.js](https://mozilla.github.io/pdf.js/).
 
+## Versioning
+
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+The following files are available from the [`gh-pages`](https://github.com/w3c/i-slide/tree/gh-pages) published under [`https://w3c.github.io/i-slide/`](https://w3c.github.io/i-slide/):
+- [`ISlide.js`](https://w3c.github.io/i-slide/ISlide.js) and [`i-slide.js`](https://w3c.github.io/i-slide/i-slide.js) contain the latest published version.
+- [`ISlide-nightly.js`](https://w3c.github.io/i-slide/ISlide.js) and [`i-slide-nightly.js`](https://w3c.github.io/i-slide/i-slide.js) contain the latest code merged in `main`, including updates that may not have been published yet.
+- `ISlide-x.js` and `i-slide-x.js` contain the latest patch version of version `x`, for example [`ISlide-2.js`](https://w3c.github.io/i-slide/ISlide-2.js) and [`i-slide-2.js`](https://w3c.github.io/i-slide/i-slide-2.js).
+- `ISlide-x.y.z.js` and `i-slide-x.y.z.js` contain published version `x.y.z` of ISlide, for example [`ISlide-2.2.1.js`](https://w3c.github.io/i-slide/ISlide-2.2.1.js) and [`i-slide-2.2.1.js`](https://w3c.github.io/i-slide/i-slide-2.2.1.js). All published versions are available.
+
+### How to publish a new version
+
+To publish a new version `x.y.z`:
+- Bump the version to `x.y.z` in `package.json` and push the update to the `main` branch.
+- Add a local version tag with `npm tag -a vx.y.z -m "This version fixes foo"`.
+- Push the tag with `git push origin vx.y.z`.
+
+Publication workflow will take care of publishing the right files to the `gh-pages` branch.
 
 ## Contributing
 
