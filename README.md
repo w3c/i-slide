@@ -105,7 +105,7 @@ The following files are available from the [`gh-pages`](https://github.com/w3c/i
 
 To publish a new version `x.y.z`:
 - Bump the version to `x.y.z` in `package.json` and push the update to the `main` branch.
-- Add a local version tag with `npm tag -a vx.y.z -m "This version fixes foo"`.
+- Add a local version tag with `git tag -a vx.y.z -m "This version fixes foo"`.
 - Push the tag with `git push origin vx.y.z`.
 
 Publication workflow will take care of publishing the right files to the `gh-pages` branch.
